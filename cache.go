@@ -37,14 +37,14 @@ func New(config *Configuration) *Cache {
 }
 
 func (c *Cache) Get(key string) Value {
-  item := c.bucket(key).Get(key)
+  item := c.bucket(key).get(key)
   if item == nil { return nil }
   c.promote(item)
   return item.value
 }
 
 func (c *Cache) Set(key string, value Value) {
-  item := c.bucket(key).Set(key, value)
+  item := c.bucket(key).set(key, value)
   c.promote(item)
 }
 
@@ -89,7 +89,7 @@ func (c *Cache) gc() {
     element := c.list.Back()
     if element == nil { return }
     item := element.Value.(*Item)
-    c.bucket(item.key).Remove(item.key)
+    c.bucket(item.key).remove(item.key)
     c.list.Remove(element)
   }
 }

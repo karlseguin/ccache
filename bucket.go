@@ -9,13 +9,13 @@ type Bucket struct {
   lookup map[string]*Item
 }
 
-func (b *Bucket) Get(key string) *Item {
+func (b *Bucket) get(key string) *Item {
   b.RLock()
   defer b.RUnlock()
   return b.lookup[key]
 }
 
-func (b *Bucket) Set(key string, value Value) *Item {
+func (b *Bucket) set(key string, value Value) *Item {
   b.Lock()
   defer b.Unlock()
   if existing, exists := b.lookup[key]; exists {
@@ -30,7 +30,7 @@ func (b *Bucket) Set(key string, value Value) *Item {
 }
 
 
-func (b *Bucket) Remove(key string) {
+func (b *Bucket) remove(key string) {
   b.Lock()
   defer b.Unlock()
   delete(b.lookup, key)
