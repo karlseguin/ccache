@@ -25,7 +25,7 @@ func TestRemovesItemFromBucket(t *testing.T) {
 
 func TestSetsANewBucketItem(t *testing.T) {
   bucket := testBucket()
-  item := bucket.set("spice", newTestValue("flow"))
+  item := bucket.set("spice", TestValue("flow"))
   assertValue(t, item, "flow")
   item = bucket.get("spice")
   assertValue(t, item, "flow")
@@ -33,7 +33,7 @@ func TestSetsANewBucketItem(t *testing.T) {
 
 func TestSetsAnExistingItem(t *testing.T) {
   bucket := testBucket()
-  item := bucket.set("power", newTestValue("9002"))
+  item := bucket.set("power", TestValue("9002"))
   assertValue(t, item, "9002")
   item = bucket.get("power")
   assertValue(t, item, "9002")
@@ -43,24 +43,18 @@ func testBucket() *Bucket {
   b := &Bucket{lookup: make(map[string]*Item),}
   b.lookup["power"] = &Item{
     key: "power",
-    value: newTestValue("9000"),
+    value: TestValue("9000"),
   }
   return b
 }
 
 func assertValue(t *testing.T, item *Item, expected string) {
-  value := item.value.(*TestValue)
-  gspec.New(t).Expect(value.v).ToEqual(expected)
+  value := item.value.(TestValue)
+  gspec.New(t).Expect(value).ToEqual(TestValue(expected))
 }
 
-type TestValue struct {
-  v string
-}
+type TestValue string
 
-func newTestValue(v string) *TestValue {
-  return &TestValue{v: v,}
-}
-
-func (v *TestValue) Expires() time.Time {
+func (v TestValue) Expires() time.Time {
   return time.Now()
 }
