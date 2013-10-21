@@ -24,7 +24,7 @@ func (b *Bucket) set(key string, value Value) *Item {
     existing.Unlock()
     return existing
   }
-  item := &Item{key: key, value: value}
+  item := newItem(key, value)
   b.lookup[key] = item
   return item
 }

@@ -1,15 +1,10 @@
 package ccache
 
-import (
-  "time"
-)
-
 type Configuration struct {
   size uint64
   buckets int
   itemsToPrune int
   promoteBuffer int
-  promoteDelay time.Duration
 }
 
 func Configure() *Configuration {
@@ -18,7 +13,6 @@ func Configure() *Configuration {
     itemsToPrune: 500,
     promoteBuffer: 1024,
     size: 500 * 1024 * 1024,
-    promoteDelay: time.Minute * -5,
   }
 }
 
@@ -39,10 +33,5 @@ func (c *Configuration) ItemsToPrune(count int) *Configuration {
 
 func (c *Configuration) PromoteBuffer(size int) *Configuration {
   c.promoteBuffer = size
-  return c
-}
-
-func (c *Configuration) PromoteDelay(delay time.Duration) *Configuration {
-  c.promoteDelay = -delay
   return c
 }

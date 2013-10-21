@@ -56,7 +56,7 @@ func (c *Cache) bucket(key string) *Bucket {
 }
 
 func (c *Cache) promote(item *Item) {
-  if item.shouldPromote(c.promoteDelay) == false { return }
+  if item.shouldPromote() == false { return }
   c.promotables <- item
 }
 
@@ -75,7 +75,7 @@ func (c *Cache) worker() {
 func (c *Cache) doPromote(item *Item) bool {
   item.Lock()
   defer item.Unlock()
-  item.promoted = time.Now()
+  item.promotions = 0
   if item.element != nil { //not a new item
     c.list.MoveToFront(item.element)
     return false
