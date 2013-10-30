@@ -51,6 +51,14 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
   c.promote(item)
 }
 
+func (c *Cache) Fetch(key string, duration time.Duration, fetch func() interface{}) interface{} {
+  item := c.Get(key)
+  if item != nil { return item }
+  value := fetch()
+  c.Set(key, value, duration)
+  return value
+}
+
 func (c *Cache) Delete(key string) {
   item := c.bucket(key).getAndDelete(key)
   if item != nil {
