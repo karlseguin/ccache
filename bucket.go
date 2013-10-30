@@ -2,6 +2,7 @@ package ccache
 
 import (
   "sync"
+  "time"
 )
 
 type Bucket struct {
@@ -15,23 +16,32 @@ func (b *Bucket) get(key string) *Item {
   return b.lookup[key]
 }
 
-func (b *Bucket) set(key string, value Value) *Item {
+func (b *Bucket) set(key string, value interface{}, duration time.Duration) *Item {
+  expires := time.Now().Add(duration)
   b.Lock()
   defer b.Unlock()
   if existing, exists := b.lookup[key]; exists {
     existing.Lock()
     existing.value = value
+    existing.expires = expires
     existing.Unlock()
     return existing
   }
-  item := newItem(key, value)
+  item := newItem(key, value, expires)
   b.lookup[key] = item
   return item
 }
 
-
-func (b *Bucket) remove(key string) {
+func (b *Bucket) delete(key string) {
   b.Lock()
   defer b.Unlock()
   delete(b.lookup, key)
+}
+
+func (b *Bucket) getAndDelete(key string) *Item{
+  b.Lock()
+  defer b.Unlock()
+  item := b.lookup[key]
+  delete(b.lookup, key)
+  return item
 }

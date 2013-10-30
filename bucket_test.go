@@ -17,15 +17,15 @@ func TestGetHitFromBucket(t *testing.T) {
   assertValue(t, item, "9000")
 }
 
-func TestRemovesItemFromBucket(t *testing.T) {
+func TestDeleteItemFromBucket(t *testing.T) {
   bucket := testBucket()
-  bucket.remove("power")
+  bucket.delete("power")
   gspec.New(t).Expect(bucket.get("power")).ToBeNil()
 }
 
 func TestSetsANewBucketItem(t *testing.T) {
   bucket := testBucket()
-  item := bucket.set("spice", TestValue("flow"))
+  item := bucket.set("spice", TestValue("flow"), time.Minute)
   assertValue(t, item, "flow")
   item = bucket.get("spice")
   assertValue(t, item, "flow")
@@ -33,7 +33,7 @@ func TestSetsANewBucketItem(t *testing.T) {
 
 func TestSetsAnExistingItem(t *testing.T) {
   bucket := testBucket()
-  item := bucket.set("power", TestValue("9002"))
+  item := bucket.set("power", TestValue("9002"), time.Minute)
   assertValue(t, item, "9002")
   item = bucket.get("power")
   assertValue(t, item, "9002")
