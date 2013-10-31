@@ -18,7 +18,7 @@ type Cache struct {
 
 func New(config *Configuration) *Cache {
   c := &Cache{
-    list: new(list.List),
+    list: list.New(),
     Configuration: config,
     bucketCount: uint32(config.buckets),
     buckets: make([]*Bucket, config.buckets),
@@ -51,12 +51,14 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
   c.promote(item)
 }
 
-func (c *Cache) Fetch(key string, duration time.Duration, fetch func() interface{}) interface{} {
+func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
   item := c.Get(key)
-  if item != nil { return item }
-  value := fetch()
-  c.Set(key, value, duration)
-  return value
+  if item != nil { return item, nil }
+  value, err := fetch()
+  if err == nil {
+    c.Set(key, value, duration)
+  }
+  return value, err
 }
 
 func (c *Cache) Delete(key string) {
@@ -64,6 +66,14 @@ func (c *Cache) Delete(key string) {
   if item != nil {
     c.deletables <- item
   }
+}
+
+//this isn't thread safe. It's meant to be called from non-concurrent tests
+func (c *Cache) Clear() {
+  for _, bucket := range c.buckets {
+    bucket.clear()
+  }
+  c.list = list.New()
 }
 
 func (c *Cache) deleteItem(bucket *Bucket, item *Item) {

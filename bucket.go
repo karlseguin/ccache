@@ -45,3 +45,9 @@ func (b *Bucket) getAndDelete(key string) *Item{
   delete(b.lookup, key)
   return item
 }
+
+func (b *Bucket) clear() {
+  b.Lock()
+  defer b.Unlock()
+  b.lookup = make(map[string]*Item)
+}
