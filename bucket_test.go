@@ -3,7 +3,7 @@ package ccache
 import (
   "time"
   "testing"
-  "github.com/karlseguin/gspec"
+  "github.com/viki-org/gspec"
 )
 
 func TestGetMissFromBucket(t *testing.T) {
@@ -24,19 +24,23 @@ func TestDeleteItemFromBucket(t *testing.T) {
 }
 
 func TestSetsANewBucketItem(t *testing.T) {
+  spec := gspec.New(t)
   bucket := testBucket()
-  item := bucket.set("spice", TestValue("flow"), time.Minute)
+  item, new := bucket.set("spice", TestValue("flow"), time.Minute)
   assertValue(t, item, "flow")
   item = bucket.get("spice")
   assertValue(t, item, "flow")
+  spec.Expect(new).ToEqual(true)
 }
 
 func TestSetsAnExistingItem(t *testing.T) {
+  spec := gspec.New(t)
   bucket := testBucket()
-  item := bucket.set("power", TestValue("9002"), time.Minute)
+  item, new := bucket.set("power", TestValue("9002"), time.Minute)
   assertValue(t, item, "9002")
   item = bucket.get("power")
   assertValue(t, item, "9002")
+  spec.Expect(new).ToEqual(false)
 }
 
 func testBucket() *Bucket {

@@ -16,7 +16,7 @@ func (b *Bucket) get(key string) *Item {
   return b.lookup[key]
 }
 
-func (b *Bucket) set(key string, value interface{}, duration time.Duration) *Item {
+func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool) {
   expires := time.Now().Add(duration)
   b.Lock()
   defer b.Unlock()
@@ -25,11 +25,11 @@ func (b *Bucket) set(key string, value interface{}, duration time.Duration) *Ite
     existing.value = value
     existing.expires = expires
     existing.Unlock()
-    return existing
+    return existing, false
   }
   item := newItem(key, value, expires)
   b.lookup[key] = item
-  return item
+  return item, true
 }
 
 func (b *Bucket) delete(key string) {

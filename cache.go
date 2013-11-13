@@ -42,13 +42,17 @@ func (c *Cache) Get(key string) interface{} {
     c.deleteItem(bucket, item)
     return nil
   }
-  c.promote(item)
+  c.conditionalPromote(item)
   return item.value
 }
 
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-  item := c.bucket(key).set(key, value, duration)
-  c.promote(item)
+  item, new := c.bucket(key).set(key, value, duration)
+  if new {
+    c.promote(item)
+  } else {
+    c.conditionalPromote(item)
+  }
 }
 
 func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
@@ -88,8 +92,12 @@ func (c *Cache) bucket(key string) *Bucket {
   return c.buckets[index]
 }
 
-func (c *Cache) promote(item *Item) {
+func (c *Cache) conditionalPromote(item *Item) {
   if item.shouldPromote(c.getsPerPromote) == false { return }
+  c.promote(item)
+}
+
+func (c *Cache) promote(item *Item) {
   c.promotables <- item
 }
 
