@@ -26,5 +26,5 @@ func newItem(key string, value interface{}, expires time.Time) *Item {
 }
 
 func (i *Item) shouldPromote(getsPerPromote int32) bool {
-  return atomic.AddInt32(&i.promotions, 1) == getsPerPromote {
+  return atomic.AddInt32(&i.promotions, 1) == getsPerPromote
 }
