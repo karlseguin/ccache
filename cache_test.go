@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestGCsTheOldestItems(t *testing.T) {
+func TestCacheGCsTheOldestItems(t *testing.T) {
 	spec := gspec.New(t)
 	cache := New(Configure().ItemsToPrune(10))
 	for i := 0; i < 500; i++ {
@@ -18,12 +18,13 @@ func TestGCsTheOldestItems(t *testing.T) {
 	spec.Expect(cache.Get("10").(int)).ToEqual(10)
 }
 
-func TestPromotedItemsDontGetPruned(t *testing.T) {
+func TestCachePromotedItemsDontGetPruned(t *testing.T) {
 	spec := gspec.New(t)
 	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
+	time.Sleep(time.Millisecond * 10) //run the worker once to init the list
 	cache.Get("9")
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
@@ -32,7 +33,7 @@ func TestPromotedItemsDontGetPruned(t *testing.T) {
 	spec.Expect(cache.Get("11").(int)).ToEqual(11)
 }
 
-func TestTrackerDoesNotCleanupHeldInstance(t *testing.T) {
+func TestCacheTrackerDoesNotCleanupHeldInstance(t *testing.T) {
 	spec := gspec.New(t)
 	cache := New(Configure().ItemsToPrune(10).Track())
 	for i := 0; i < 10; i++ {
