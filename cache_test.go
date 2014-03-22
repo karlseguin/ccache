@@ -2,8 +2,8 @@ package ccache
 
 import (
 	"github.com/karlseguin/gspec"
-	"testing"
 	"strconv"
+	"testing"
 	"time"
 )
 
