@@ -1,7 +1,7 @@
 package ccache
 
 type Configuration struct {
-	size           uint64
+	maxItems       int
 	buckets        int
 	itemsToPrune   int
 	deleteBuffer   int
@@ -17,15 +17,15 @@ func Configure() *Configuration {
 		deleteBuffer:   1024,
 		getsPerPromote: 10,
 		promoteBuffer:  1024,
-		size:           500 * 1024 * 1024,
+		maxItems:       5000,
 		tracking:       false,
 	}
 }
 
 // The size, in bytes, of the data to cache
-// [500MB]
-func (c *Configuration) Size(bytes uint64) *Configuration {
-	c.size = bytes
+// [5000]
+func (c *Configuration) MaxItems(max int) *Configuration {
+	c.maxItems = max
 	return c
 }
 

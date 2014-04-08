@@ -4,7 +4,6 @@ package ccache
 import (
 	"container/list"
 	"hash/fnv"
-	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -126,15 +125,10 @@ func (c *Cache) promote(item *Item) {
 }
 
 func (c *Cache) worker() {
-	ms := new(runtime.MemStats)
 	for {
 		select {
 		case item := <-c.promotables:
-			if wasNew := c.doPromote(item); wasNew == false {
-				continue
-			}
-			runtime.ReadMemStats(ms)
-			if ms.HeapAlloc > c.size {
+			if c.doPromote(item) && c.list.Len() > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:

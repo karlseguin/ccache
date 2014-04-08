@@ -48,3 +48,15 @@ func TestCacheTrackerDoesNotCleanupHeldInstance(t *testing.T) {
 	cache.gc()
 	spec.Expect(cache.Get("0")).ToBeNil()
 }
+
+func TestCacheRemovesOldestItemWhenFull(t *testing.T) {
+	spec := gspec.New(t)
+	cache := New(Configure().MaxItems(5).ItemsToPrune(1))
+	for i := 0; i < 7; i++ {
+		cache.Set(strconv.Itoa(i), i, time.Minute)
+	}
+	time.Sleep(time.Millisecond * 10)
+	spec.Expect(cache.Get("0")).ToBeNil()
+	spec.Expect(cache.Get("1")).ToBeNil()
+	spec.Expect(cache.Get("2").(int)).ToEqual(2)
+}
