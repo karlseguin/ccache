@@ -12,10 +12,10 @@ type Configuration struct {
 
 func Configure() *Configuration {
 	return &Configuration{
-		buckets:        64,
+		buckets:        16,
 		itemsToPrune:   500,
 		deleteBuffer:   1024,
-		getsPerPromote: 10,
+		getsPerPromote: 3,
 		promoteBuffer:  1024,
 		maxItems:       5000,
 		tracking:       false,
