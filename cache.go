@@ -57,7 +57,7 @@ func (c *Cache) get(key string) *Item {
 	if item == nil {
 		return nil
 	}
-	if item.expires.Before(time.Now()) {
+	if item.expires < time.Now().Unix() {
 		c.deleteItem(bucket, item)
 		return nil
 	}

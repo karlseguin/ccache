@@ -23,7 +23,7 @@ func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*It
 	if existing, exists := b.lookup[key]; exists {
 		existing.Lock()
 		existing.value = value
-		existing.expires = expires
+		existing.expires = expires.Unix()
 		existing.Unlock()
 		return existing, false
 	}
