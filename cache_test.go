@@ -13,6 +13,15 @@ func Test_Cache(t *testing.T) {
 	Expectify(new(CacheTests), t)
 }
 
+func (c *CacheTests) DeletesAValue() {
+	cache := New(Configure())
+	cache.Set("spice", "flow", time.Minute)
+	cache.Set("worm", "sand", time.Minute)
+	cache.Delete("spice")
+	Expect(cache.Get("spice")).To.Equal(nil)
+	Expect(cache.Get("worm").(string)).To.Equal("sand")
+}
+
 func (c *CacheTests) GCsTheOldestItems() {
 	cache := New(Configure().ItemsToPrune(10))
 	for i := 0; i < 500; i++ {

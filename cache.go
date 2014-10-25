@@ -131,12 +131,20 @@ func (c *Cache) worker() {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			c.list.Remove(item.element)
+			if item.element == nil {
+				item.promotions = -2
+			} else {
+				c.list.Remove(item.element)
+			}
 		}
 	}
 }
 
 func (c *Cache) doPromote(item *Item) bool {
+	//already deleted
+	if item.promotions == -2 {
+		return false
+	}
 	item.promotions = 0
 	if item.element != nil { //not a new item
 		c.list.MoveToFront(item.element)
