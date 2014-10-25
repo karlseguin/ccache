@@ -1,13 +1,18 @@
 package ccache
 
 import (
-	"github.com/karlseguin/gspec"
+	. "github.com/karlseguin/expect"
 	"testing"
 )
 
-func TestItemPromotability(t *testing.T) {
-	spec := gspec.New(t)
+type ItemTests struct{}
+
+func Test_Item(t *testing.T) {
+	Expectify(new(ItemTests), t)
+}
+
+func (i *ItemTests) Promotability() {
 	item := &Item{promotions: 4}
-	spec.Expect(item.shouldPromote(5)).ToEqual(true)
-	spec.Expect(item.shouldPromote(5)).ToEqual(false)
+	Expect(item.shouldPromote(5)).To.Equal(true)
+	Expect(item.shouldPromote(5)).To.Equal(false)
 }

@@ -1,7 +1,7 @@
 package ccache
 
 type Configuration struct {
-	maxItems       int
+	maxItems       uint64
 	buckets        int
 	itemsToPrune   int
 	deleteBuffer   int
@@ -22,9 +22,9 @@ func Configure() *Configuration {
 	}
 }
 
-// The size, in bytes, of the data to cache
+// The max number of items to store in the cache
 // [5000]
-func (c *Configuration) MaxItems(max int) *Configuration {
+func (c *Configuration) MaxItems(max uint64) *Configuration {
 	c.maxItems = max
 	return c
 }
@@ -32,39 +32,39 @@ func (c *Configuration) MaxItems(max int) *Configuration {
 // Keys are hashed into % bucket count to provide greater concurrency (every set
 // requires a write lock on the bucket)
 // [64]
-func (c *Configuration) Buckets(count int) *Configuration {
-	c.buckets = count
+func (c *Configuration) Buckets(count uint32) *Configuration {
+	c.buckets = int(count)
 	return c
 }
 
 // The number of items to prune when memory is low
 // [500]
-func (c *Configuration) ItemsToPrune(count int) *Configuration {
-	c.itemsToPrune = count
+func (c *Configuration) ItemsToPrune(count uint32) *Configuration {
+	c.itemsToPrune = int(count)
 	return c
 }
 
 // The size of the queue for items which should be promoted. If the queue fills
 // up, promotions are skipped
 // [1024]
-func (c *Configuration) PromoteBuffer(size int) *Configuration {
-	c.promoteBuffer = size
+func (c *Configuration) PromoteBuffer(size uint32) *Configuration {
+	c.promoteBuffer = int(size)
 	return c
 }
 
 // The size of the queue for items which should be deleted. If the queue fills
 // up, calls to Delete() will block
-func (c *Configuration) DeleteBuffer(size int) *Configuration {
-	c.deleteBuffer = size
+func (c *Configuration) DeleteBuffer(size uint32) *Configuration {
+	c.deleteBuffer = int(size)
 	return c
 }
 
 // Give a large cache with a high read / write ratio, it's usually unecessary
 // to promote an item on every Get. GetsPerPromote specifies the number of Gets
 // a key must have before being promoted
-// [10]
-func (c *Configuration) GetsPerPromote(count int) *Configuration {
-	c.getsPerPromote = int32(count)
+// [3]
+func (c *Configuration) GetsPerPromote(count int32) *Configuration {
+	c.getsPerPromote = count
 	return c
 }
 

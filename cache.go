@@ -26,7 +26,7 @@ func New(config *Configuration) *Cache {
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
 	}
-	for i := 0; i < config.buckets; i++ {
+	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &Bucket{
 			lookup: make(map[string]*Item),
 		}
@@ -109,8 +109,7 @@ func (c *Cache) deleteItem(bucket *Bucket, item *Item) {
 func (c *Cache) bucket(key string) *Bucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
-	index := h.Sum32() % c.bucketCount
-	return c.buckets[index]
+	return c.buckets[h.Sum32()%c.bucketCount]
 }
 
 func (c *Cache) conditionalPromote(item *Item) {
@@ -128,7 +127,7 @@ func (c *Cache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && c.list.Len() > c.maxItems {
+			if c.doPromote(item) && uint64(c.list.Len()) > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:

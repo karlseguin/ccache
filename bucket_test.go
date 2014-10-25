@@ -1,46 +1,51 @@
 package ccache
 
 import (
-	"github.com/karlseguin/gspec"
+	. "github.com/karlseguin/expect"
 	"testing"
 	"time"
 )
 
-func TestGetMissFromBucket(t *testing.T) {
-	bucket := testBucket()
-	gspec.New(t).Expect(bucket.get("invalid")).ToBeNil()
+type BucketTests struct {
 }
 
-func TestGetHitFromBucket(t *testing.T) {
+func Tests_Bucket(t *testing.T) {
+	Expectify(new(BucketTests), t)
+}
+
+func (b *BucketTests) GetMissFromBucket() {
+	bucket := testBucket()
+	Expect(bucket.get("invalid")).To.Equal(nil)
+}
+
+func (b *BucketTests) GetHitFromBucket() {
 	bucket := testBucket()
 	item := bucket.get("power")
-	assertValue(t, item, "9000")
+	assertValue(item, "9000")
 }
 
-func TestDeleteItemFromBucket(t *testing.T) {
+func (b *BucketTests) DeleteItemFromBucket() {
 	bucket := testBucket()
 	bucket.delete("power")
-	gspec.New(t).Expect(bucket.get("power")).ToBeNil()
+	Expect(bucket.get("power")).To.Equal(nil)
 }
 
-func TestSetsANewBucketItem(t *testing.T) {
-	spec := gspec.New(t)
+func (b *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
 	item, new := bucket.set("spice", TestValue("flow"), time.Minute)
-	assertValue(t, item, "flow")
+	assertValue(item, "flow")
 	item = bucket.get("spice")
-	assertValue(t, item, "flow")
-	spec.Expect(new).ToEqual(true)
+	assertValue(item, "flow")
+	Expect(new).To.Equal(true)
 }
 
-func TestSetsAnExistingItem(t *testing.T) {
-	spec := gspec.New(t)
+func (b *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
 	item, new := bucket.set("power", TestValue("9002"), time.Minute)
-	assertValue(t, item, "9002")
+	assertValue(item, "9002")
 	item = bucket.get("power")
-	assertValue(t, item, "9002")
-	spec.Expect(new).ToEqual(false)
+	assertValue(item, "9002")
+	Expect(new).To.Equal(false)
 }
 
 func testBucket() *Bucket {
@@ -52,9 +57,9 @@ func testBucket() *Bucket {
 	return b
 }
 
-func assertValue(t *testing.T, item *Item, expected string) {
+func assertValue(item *Item, expected string) {
 	value := item.value.(TestValue)
-	gspec.New(t).Expect(value).ToEqual(TestValue(expected))
+	Expect(value).To.Equal(TestValue(expected))
 }
 
 type TestValue string
