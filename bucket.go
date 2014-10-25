@@ -30,13 +30,7 @@ func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*It
 	return item, true
 }
 
-func (b *Bucket) delete(key string) {
-	b.Lock()
-	defer b.Unlock()
-	delete(b.lookup, key)
-}
-
-func (b *Bucket) getAndDelete(key string) *Item {
+func (b *Bucket) delete(key string) *Item {
 	b.Lock()
 	defer b.Unlock()
 	item := b.lookup[key]

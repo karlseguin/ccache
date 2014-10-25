@@ -8,42 +8,42 @@ import (
 	"time"
 )
 
-type Cache struct {
+type LayeredCache struct {
 	*Configuration
 	list        *list.List
-	buckets     []*Bucket
+	buckets     []*LayeredBucket
 	bucketCount uint32
 	deletables  chan *Item
 	promotables chan *Item
 }
 
-func New(config *Configuration) *Cache {
-	c := &Cache{
+func Layered(config *Configuration) *LayeredCache {
+	c := &LayeredCache{
 		list:          list.New(),
 		Configuration: config,
 		bucketCount:   uint32(config.buckets),
-		buckets:       make([]*Bucket, config.buckets),
+		buckets:       make([]*LayeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = &Bucket{
-			lookup: make(map[string]*Item),
+		c.buckets[i] = &LayeredBucket{
+			buckets: make(map[string]*Bucket),
 		}
 	}
 	go c.worker()
 	return c
 }
 
-func (c *Cache) Get(key string) interface{} {
-	if item := c.get(key); item != nil {
+func (c *LayeredCache) Get(primary, secondary string) interface{} {
+	if item := c.get(primary, secondary); item != nil {
 		return item.value
 	}
 	return nil
 }
 
-func (c *Cache) TrackingGet(key string) TrackedItem {
-	item := c.get(key)
+func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
+	item := c.get(primary, secondary)
 	if item == nil {
 		return NilTracked
 	}
@@ -51,22 +51,21 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 	return item
 }
 
-func (c *Cache) get(key string) *Item {
-	bucket := c.bucket(key)
-	item := bucket.get(key)
+func (c *LayeredCache) get(primary, secondary string) *Item {
+	bucket := c.bucket(primary)
+	item := bucket.get(primary, secondary)
 	if item == nil {
 		return nil
 	}
 	if item.expires < time.Now().Unix() {
-		c.deleteItem(bucket, item)
 		return nil
 	}
 	c.conditionalPromote(item)
 	return item
 }
 
-func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	item, new := c.bucket(key).set(key, value, duration)
+func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
+	item, new := c.bucket(primary).set(primary, secondary, value, duration)
 	if new {
 		c.promote(item)
 	} else {
@@ -74,56 +73,55 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	}
 }
 
-func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
-	item := c.Get(key)
+func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
+	item := c.Get(primary, secondary)
 	if item != nil {
 		return item, nil
 	}
 	value, err := fetch()
 	if err == nil {
-		c.Set(key, value, duration)
+		c.Set(primary, secondary, value, duration)
 	}
 	return value, err
 }
 
-func (c *Cache) Delete(key string) {
-	item := c.bucket(key).delete(key)
+func (c *LayeredCache) Delete(primary, secondary string) {
+	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
 		c.deletables <- item
 	}
 }
 
+func (c *LayeredCache) DeleteAll(primary string) {
+	c.bucket(primary).deleteAll(primary, c.deletables)
+}
+
 //this isn't thread safe. It's meant to be called from non-concurrent tests
-func (c *Cache) Clear() {
+func (c *LayeredCache) Clear() {
 	for _, bucket := range c.buckets {
 		bucket.clear()
 	}
 	c.list = list.New()
 }
 
-func (c *Cache) deleteItem(bucket *Bucket, item *Item) {
-	bucket.delete(item.key) //stop other GETs from getting it
-	c.deletables <- item
-}
-
-func (c *Cache) bucket(key string) *Bucket {
+func (c *LayeredCache) bucket(key string) *LayeredBucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()%c.bucketCount]
 }
 
-func (c *Cache) conditionalPromote(item *Item) {
+func (c *LayeredCache) conditionalPromote(item *Item) {
 	if item.shouldPromote(c.getsPerPromote) == false {
 		return
 	}
 	c.promote(item)
 }
 
-func (c *Cache) promote(item *Item) {
+func (c *LayeredCache) promote(item *Item) {
 	c.promotables <- item
 }
 
-func (c *Cache) worker() {
+func (c *LayeredCache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
@@ -131,12 +129,21 @@ func (c *Cache) worker() {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			c.list.Remove(item.element)
+			if item.element == nil {
+				item.promotions = -2
+			} else {
+				c.list.Remove(item.element)
+			}
 		}
 	}
 }
 
-func (c *Cache) doPromote(item *Item) bool {
+func (c *LayeredCache) doPromote(item *Item) bool {
+	// deleted before it ever got promoted
+	if item.promotions == -2 {
+		return false
+	}
+
 	item.promotions = 0
 	if item.element != nil { //not a new item
 		c.list.MoveToFront(item.element)
@@ -146,7 +153,7 @@ func (c *Cache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *Cache) gc() {
+func (c *LayeredCache) gc() {
 	element := c.list.Back()
 	for i := 0; i < c.itemsToPrune; i++ {
 		if element == nil {
@@ -155,7 +162,7 @@ func (c *Cache) gc() {
 		prev := element.Prev()
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
-			c.bucket(item.key).delete(item.key)
+			c.bucket(item.group).delete(item.group, item.key)
 			c.list.Remove(element)
 		}
 		element = prev

@@ -17,15 +17,19 @@ First, download the project:
 Next, import and create a `ccache` instance:
 
 
-    import (
-      "github.com/karlseguin/ccache"
-    )
+```go
+import (
+  "github.com/karlseguin/ccache"
+)
 
-    var cache = ccache.New(ccache.Configure())
+var cache = ccache.New(ccache.Configure())
+```
 
 `Configure` exposes a chainable API:
 
-    var cache = ccache.New(ccache.Configure().MaxItems(1000).itemsToPrune(100))
+```go
+var cache = ccache.New(ccache.Configure().MaxItems(1000).itemsToPrune(100))
+```
 
 The most likely configuration options to tweak are:
 
@@ -43,39 +47,72 @@ Configurations that change the internals of the cache, which aren't as likely to
 
 Once the cache is setup, you can  `Get`, `Set` and `Delete` items from it. A `Get` returns an `interface{}` which you'll want to cast back to the type of object you stored:
 
-    item := cache.Get("user:4")
-    if item == nil {
-      //handle
-    } else {
-      user := item.(*User)
-    }
+```go
+item := cache.Get("user:4")
+if item == nil {
+  //handle
+} else {
+  user := item.(*User)
+}
+```
 
 `Set` expects the key, value and ttl:
 
-    cache.Set("user:4", user, time.Minute * 10)
+```go
+cache.Set("user:4", user, time.Minute * 10)
+```
 
 There's also a `Fetch` which mixes a `Get` and a `Set`:
 
-    item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error) {
-      //code to fetch the data incase of a miss
-      //should return the data to cache and the error, if any
-    })
+```go
+item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error) {
+  //code to fetch the data incase of a miss
+  //should return the data to cache and the error, if any
+})
+```
 
 ## Tracking
 ccache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
 
 When you configure your cache with `Track()`:
 
-    cache = ccache.New(ccache.Configure().Track())
+```go
+cache = ccache.New(ccache.Configure().Track())
+```
 
 The items retrieved via `TrackingGet` will not be eligible for purge until `Release` is called on them:
 
-    item := cache.TrackingGet("user:4")
-    user := item.Value()   //will be nil if "user:4" didn't exist in the cache
-    item.Release()  //can be called even if item.Value() returned nil
+```go
+item := cache.TrackingGet("user:4")
+user := item.Value()   //will be nil if "user:4" didn't exist in the cache
+item.Release()  //can be called even if item.Value() returned nil
+```
 
 In practive, `Release` wouldn't be called until later, at some other place in your code.
 
 There's a couple reason to use the tracking mode if other parts of your code also hold references to objects. First, if you're already going to hold a reference to these objects, there's really no reason not to have them in the cache - the memory is used up anyways.
 
 More important, it helps ensure that you're code returns consistent data. With tracking, "user:4" might be purged, and a subsequent `Fetch` would reload the data. This can result in different versions of "user:4" being returned by different parts of your system.
+
+## LayeredCache
+
+CCache's `LayeredCache` stores and retrieves values by both a primary and secondary key. Deletion can happen against either the primary and secondary key, or the primary key only (removing all values that share the same primary key).
+
+`LayeredCache` is useful for HTTP caching, when you want to purge all variations of a request. Consider:
+
+`LayeredCache` takes the same configuration object as the main cache, exposes the same optional tracking capabilities, but exposes a slightly different API:
+
+```go
+cache := ccache.Layered(ccache.Configure())
+
+cache.Set("/users/goku", "type:json", "{value_to_cache}", time.Minute * 5)
+cache.Set("/users/goku", "type:xml", "<value_to_cache>", time.Minute * 5)
+
+json := cache.Get("/users/goku", "type:json")
+xml := cache.Get("/users/goku", "type:xml")
+
+cache.Delete("/users/goku", "type:json")
+cache.Delete("/users/goku", "type:xml")
+// OR
+cache.DeleteAll("/users/goku")
+```
