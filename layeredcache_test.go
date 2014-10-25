@@ -21,7 +21,7 @@ func (l *LayeredCacheTests) GetsANonExistantValue() {
 func (l *LayeredCacheTests) SetANewValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "a value", time.Minute)
-	Expect(cache.Get("spice", "flow").(string)).To.Equal("a value")
+	Expect(cache.Get("spice", "flow").Value()).To.Equal("a value")
 	Expect(cache.Get("spice", "stop")).To.Equal(nil)
 }
 
@@ -30,11 +30,11 @@ func (l *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
-	Expect(cache.Get("spice", "flow").(string)).To.Equal("value-a")
-	Expect(cache.Get("spice", "must").(string)).To.Equal("value-b")
+	Expect(cache.Get("spice", "flow").Value()).To.Equal("value-a")
+	Expect(cache.Get("spice", "must").Value()).To.Equal("value-b")
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
 
-	Expect(cache.Get("leto", "sister").(string)).To.Equal("ghanima")
+	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 	Expect(cache.Get("leto", "brother")).To.Equal(nil)
 	Expect(cache.Get("baron", "friend")).To.Equal(nil)
 }
@@ -46,9 +46,9 @@ func (l *LayeredCacheTests) DeletesAValue() {
 	cache.Set("leto", "sister", "ghanima", time.Minute)
 	cache.Delete("spice", "flow")
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
-	Expect(cache.Get("spice", "must").(string)).To.Equal("value-b")
+	Expect(cache.Get("spice", "must").Value()).To.Equal("value-b")
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
-	Expect(cache.Get("leto", "sister").(string)).To.Equal("ghanima")
+	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 }
 
 func (l *LayeredCacheTests) DeletesALayer() {
@@ -60,7 +60,7 @@ func (l *LayeredCacheTests) DeletesALayer() {
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 	Expect(cache.Get("spice", "must")).To.Equal(nil)
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
-	Expect(cache.Get("leto", "sister").(string)).To.Equal("ghanima")
+	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 }
 
 func (c *LayeredCacheTests) GCsTheOldestItems() {
@@ -74,10 +74,10 @@ func (c *LayeredCacheTests) GCsTheOldestItems() {
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
 	Expect(cache.Get("xx", "a")).To.Equal(nil)
-	Expect(cache.Get("xx", "b").(int)).To.Equal(9001)
+	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
 	Expect(cache.Get("8", "a")).To.Equal(nil)
-	Expect(cache.Get("9", "a")).To.Equal(9)
-	Expect(cache.Get("10", "a").(int)).To.Equal(10)
+	Expect(cache.Get("9", "a").Value()).To.Equal(9)
+	Expect(cache.Get("10", "a").Value()).To.Equal(10)
 }
 
 func (c *LayeredCacheTests) PromotedItemsDontGetPruned() {
@@ -89,9 +89,9 @@ func (c *LayeredCacheTests) PromotedItemsDontGetPruned() {
 	cache.Get("9", "a")
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
-	Expect(cache.Get("9", "a").(int)).To.Equal(9)
+	Expect(cache.Get("9", "a").Value()).To.Equal(9)
 	Expect(cache.Get("10", "a")).To.Equal(nil)
-	Expect(cache.Get("11", "a").(int)).To.Equal(11)
+	Expect(cache.Get("11", "a").Value()).To.Equal(11)
 }
 
 func (c *LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
@@ -102,7 +102,7 @@ func (c *LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	item := cache.TrackingGet("0", "a")
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
-	Expect(cache.Get("0", "a").(int)).To.Equal(0)
+	Expect(cache.Get("0", "a").Value()).To.Equal(0)
 	Expect(cache.Get("1", "a")).To.Equal(nil)
 	item.Release()
 	cache.gc()
@@ -121,9 +121,13 @@ func (c *LayeredCacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("0", "a")).To.Equal(nil)
 	Expect(cache.Get("1", "a")).To.Equal(nil)
 	Expect(cache.Get("2", "a")).To.Equal(nil)
-	Expect(cache.Get("3", "a")).To.Equal(3)
-	Expect(cache.Get("xx", "b")).To.Equal(9001)
+	Expect(cache.Get("3", "a").Value()).To.Equal(3)
+	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
 }
+
+// func (c *LayeredCacheTests) GetsAnExpiredIten() {
+
+// }
 
 func newLayered() *LayeredCache {
 	return Layered(Configure())

@@ -35,32 +35,24 @@ func Layered(config *Configuration) *LayeredCache {
 	return c
 }
 
-func (c *LayeredCache) Get(primary, secondary string) interface{} {
-	if item := c.get(primary, secondary); item != nil {
-		return item.value
-	}
-	return nil
-}
-
-func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
-	item := c.get(primary, secondary)
-	if item == nil {
-		return NilTracked
-	}
-	item.track()
-	return item
-}
-
-func (c *LayeredCache) get(primary, secondary string) *Item {
+func (c *LayeredCache) Get(primary, secondary string) *Item {
 	bucket := c.bucket(primary)
 	item := bucket.get(primary, secondary)
 	if item == nil {
 		return nil
 	}
-	if item.expires < time.Now().Unix() {
-		return nil
+	if item.expires > time.Now().Unix() {
+		c.conditionalPromote(item)
 	}
-	c.conditionalPromote(item)
+	return item
+}
+
+func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
+	item := c.Get(primary, secondary)
+	if item == nil {
+		return NilTracked
+	}
+	item.track()
 	return item
 }
 

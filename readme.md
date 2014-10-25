@@ -14,7 +14,7 @@ First, download the project:
     go get github.com/karlseguin/ccache
 
 ## Configuration
-Next, import and create a `ccache` instance:
+Next, import and create a `Cache` instance:
 
 
 ```go
@@ -45,23 +45,34 @@ Configurations that change the internals of the cache, which aren't as likely to
 
 ## Usage
 
-Once the cache is setup, you can  `Get`, `Set` and `Delete` items from it. A `Get` returns an `interface{}` which you'll want to cast back to the type of object you stored:
+Once the cache is setup, you can  `Get`, `Set` and `Delete` items from it. A `Get` returns an `*Item`:
 
+### Get
 ```go
 item := cache.Get("user:4")
 if item == nil {
   //handle
 } else {
-  user := item.(*User)
+  user := item.Value().(*User)
 }
 ```
+The returned `*Item` exposes a number of methods:
 
+* `Value() interface{}` - the value cached
+* `Expired() bool` - whether the item is expired or not
+* `TTL() time.Duration` - the duration before the item expires (will be a negative value for expired items)
+* `Expires() time.Time` - the time the item will expire
+
+By returning expired items, CCache lets you decide if you want to serve stale content or not. For example, you might decide to serve up slightly stale content (< 30 seconds old) while re-fetching newer data in the background. You might also decide to serve up infinitely stale content if you're unable to get new data from your source.
+
+### Set
 `Set` expects the key, value and ttl:
 
 ```go
 cache.Set("user:4", user, time.Minute * 10)
 ```
 
+### Fetch
 There's also a `Fetch` which mixes a `Get` and a `Set`:
 
 ```go
@@ -71,8 +82,15 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 })
 ```
 
+### Delete
+`Delete` expects the key to delete. It's ok to call `Delete` on a non-existant key:
+
+```go
+cache.Delete("user:4")
+```
+
 ## Tracking
-ccache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
+CCache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
 
 When you configure your cache with `Track()`:
 

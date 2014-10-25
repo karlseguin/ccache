@@ -19,7 +19,7 @@ func (c *CacheTests) DeletesAValue() {
 	cache.Set("worm", "sand", time.Minute)
 	cache.Delete("spice")
 	Expect(cache.Get("spice")).To.Equal(nil)
-	Expect(cache.Get("worm").(string)).To.Equal("sand")
+	Expect(cache.Get("worm").Value()).To.Equal("sand")
 }
 
 func (c *CacheTests) GCsTheOldestItems() {
@@ -31,7 +31,7 @@ func (c *CacheTests) GCsTheOldestItems() {
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
 	Expect(cache.Get("9")).To.Equal(nil)
-	Expect(cache.Get("10").(int)).To.Equal(10)
+	Expect(cache.Get("10").Value()).To.Equal(10)
 }
 
 func (c *CacheTests) PromotedItemsDontGetPruned() {
@@ -43,9 +43,9 @@ func (c *CacheTests) PromotedItemsDontGetPruned() {
 	cache.Get("9")
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
-	Expect(cache.Get("9").(int)).To.Equal(9)
+	Expect(cache.Get("9").Value()).To.Equal(9)
 	Expect(cache.Get("10")).To.Equal(nil)
-	Expect(cache.Get("11").(int)).To.Equal(11)
+	Expect(cache.Get("11").Value()).To.Equal(11)
 }
 
 func (c *CacheTests) TrackerDoesNotCleanupHeldInstance() {
@@ -56,7 +56,7 @@ func (c *CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	item := cache.TrackingGet("0")
 	time.Sleep(time.Millisecond * 10)
 	cache.gc()
-	Expect(cache.Get("0").(int)).To.Equal(0)
+	Expect(cache.Get("0").Value()).To.Equal(0)
 	Expect(cache.Get("1")).To.Equal(nil)
 	item.Release()
 	cache.gc()
@@ -71,5 +71,5 @@ func (c *CacheTests) RemovesOldestItemWhenFull() {
 	time.Sleep(time.Millisecond * 10)
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
-	Expect(cache.Get("2").(int)).To.Equal(2)
+	Expect(cache.Get("2").Value()).To.Equal(2)
 }

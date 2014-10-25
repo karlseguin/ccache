@@ -3,17 +3,34 @@ package ccache
 import (
 	"container/list"
 	"sync/atomic"
+	"time"
 )
+
 
 type TrackedItem interface {
 	Value() interface{}
 	Release()
+	Expired() bool
+	TTL() time.Duration
+	Expires() time.Time
 }
 
 type nilItem struct{}
 
 func (n *nilItem) Value() interface{} { return nil }
 func (n *nilItem) Release()           {}
+
+func (i *nilItem) Expired() bool {
+	return true
+}
+
+func (i *nilItem) TTL() time.Duration {
+	return time.Minute
+}
+
+func (i *nilItem) Expires() time.Time {
+	return time.Time{}
+}
 
 var NilTracked = new(nilItem)
 
@@ -50,4 +67,16 @@ func (i *Item) track() {
 
 func (i *Item) Release() {
 	atomic.AddInt32(&i.refCount, -1)
+}
+
+func (i *Item) Expired() bool {
+	return i.expires < time.Now().Unix()
+}
+
+func (i *Item) TTL() time.Duration {
+	return time.Second * time.Duration(i.expires - time.Now().Unix())
+}
+
+func (i *Item) Expires() time.Time {
+	return time.Unix(i.expires, 0)
 }

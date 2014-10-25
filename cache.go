@@ -35,33 +35,24 @@ func New(config *Configuration) *Cache {
 	return c
 }
 
-func (c *Cache) Get(key string) interface{} {
-	if item := c.get(key); item != nil {
-		return item.value
-	}
-	return nil
-}
-
-func (c *Cache) TrackingGet(key string) TrackedItem {
-	item := c.get(key)
-	if item == nil {
-		return NilTracked
-	}
-	item.track()
-	return item
-}
-
-func (c *Cache) get(key string) *Item {
+func (c *Cache) Get(key string) *Item {
 	bucket := c.bucket(key)
 	item := bucket.get(key)
 	if item == nil {
 		return nil
 	}
-	if item.expires < time.Now().Unix() {
-		c.deleteItem(bucket, item)
-		return nil
+	if item.expires > time.Now().Unix() {
+		c.conditionalPromote(item)
 	}
-	c.conditionalPromote(item)
+	return item
+}
+
+func (c *Cache) TrackingGet(key string) TrackedItem {
+	item := c.Get(key)
+	if item == nil {
+		return NilTracked
+	}
+	item.track()
 	return item
 }
 
