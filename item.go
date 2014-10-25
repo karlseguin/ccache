@@ -2,9 +2,7 @@ package ccache
 
 import (
 	"container/list"
-	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type TrackedItem interface {
@@ -21,7 +19,6 @@ var NilTracked = new(nilItem)
 
 type Item struct {
 	key string
-	sync.Mutex
 	promotions int32
 	refCount   int32
 	expires    int64
@@ -29,12 +26,12 @@ type Item struct {
 	element    *list.Element
 }
 
-func newItem(key string, value interface{}, expires time.Time) *Item {
+func newItem(key string, value interface{}, expires int64) *Item {
 	return &Item{
 		key:        key,
 		value:      value,
 		promotions: -1,
-		expires:    expires.Unix(),
+		expires:    expires,
 	}
 }
 

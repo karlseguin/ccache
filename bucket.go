@@ -17,14 +17,12 @@ func (b *Bucket) get(key string) *Item {
 }
 
 func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool) {
-	expires := time.Now().Add(duration)
+	expires := time.Now().Add(duration).Unix()
 	b.Lock()
 	defer b.Unlock()
 	if existing, exists := b.lookup[key]; exists {
-		existing.Lock()
 		existing.value = value
-		existing.expires = expires.Unix()
-		existing.Unlock()
+		existing.expires = expires
 		return existing, false
 	}
 	item := newItem(key, value, expires)

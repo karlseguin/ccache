@@ -137,8 +137,6 @@ func (c *Cache) worker() {
 }
 
 func (c *Cache) doPromote(item *Item) bool {
-	item.Lock()
-	defer item.Unlock()
 	item.promotions = 0
 	if item.element != nil { //not a new item
 		c.list.MoveToFront(item.element)
