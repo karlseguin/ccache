@@ -18,8 +18,8 @@ func (n *nilItem) Release()           {}
 var NilTracked = new(nilItem)
 
 type Item struct {
-	key string
-	group string
+	key        string
+	group      string
 	promotions int32
 	refCount   int32
 	expires    int64

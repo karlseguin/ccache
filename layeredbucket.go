@@ -20,7 +20,6 @@ func (b *LayeredBucket) get(primary, secondary string) *Item {
 	return bucket.get(secondary)
 }
 
-
 func (b *LayeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, bool) {
 	b.Lock()
 	bucket, exists := b.buckets[primary]

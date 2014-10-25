@@ -2,9 +2,9 @@ package ccache
 
 import (
 	. "github.com/karlseguin/expect"
+	"strconv"
 	"testing"
 	"time"
-	"strconv"
 )
 
 type LayeredCacheTests struct{}
@@ -51,7 +51,6 @@ func (l *LayeredCacheTests) DeletesAValue() {
 	Expect(cache.Get("leto", "sister").(string)).To.Equal("ghanima")
 }
 
-
 func (l *LayeredCacheTests) DeletesALayer() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
@@ -63,10 +62,6 @@ func (l *LayeredCacheTests) DeletesALayer() {
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
 	Expect(cache.Get("leto", "sister").(string)).To.Equal("ghanima")
 }
-
-
-
-
 
 func (c *LayeredCacheTests) GCsTheOldestItems() {
 	cache := Layered(Configure().ItemsToPrune(10))
