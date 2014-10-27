@@ -77,11 +77,13 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	return value, err
 }
 
-func (c *Cache) Delete(key string) {
+func (c *Cache) Delete(key string) bool {
 	item := c.bucket(key).delete(key)
 	if item != nil {
 		c.deletables <- item
+		return true
 	}
+	return false
 }
 
 //this isn't thread safe. It's meant to be called from non-concurrent tests

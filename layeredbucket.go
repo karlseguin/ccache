@@ -45,24 +45,25 @@ func (b *LayeredBucket) delete(primary, secondary string) *Item {
 	return bucket.delete(secondary)
 }
 
-func (b *LayeredBucket) deleteAll(primary string, deletables chan *Item) {
+func (b *LayeredBucket) deleteAll(primary string, deletables chan *Item) bool {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
 	if exists == false {
-		return
+		return false
 	}
 
 	bucket.Lock()
 	defer bucket.Unlock()
 
 	if l := len(bucket.lookup); l == 0 {
-		return
+		return false
 	}
 	for key, item := range bucket.lookup {
 		delete(bucket.lookup, key)
 		deletables <- item
 	}
+	return true
 }
 
 func (b *LayeredBucket) clear() {

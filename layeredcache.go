@@ -77,15 +77,17 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 	return value, err
 }
 
-func (c *LayeredCache) Delete(primary, secondary string) {
+func (c *LayeredCache) Delete(primary, secondary string) bool {
 	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
 		c.deletables <- item
+		return true
 	}
+	return false
 }
 
-func (c *LayeredCache) DeleteAll(primary string) {
-	c.bucket(primary).deleteAll(primary, c.deletables)
+func (c *LayeredCache) DeleteAll(primary string) bool {
+	return c.bucket(primary).deleteAll(primary, c.deletables)
 }
 
 //this isn't thread safe. It's meant to be called from non-concurrent tests
