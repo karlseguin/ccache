@@ -89,6 +89,9 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 cache.Delete("user:4")
 ```
 
+### Extend
+The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
+
 ## Tracking
 CCache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
 

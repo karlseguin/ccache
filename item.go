@@ -13,6 +13,7 @@ type TrackedItem interface {
 	Expired() bool
 	TTL() time.Duration
 	Expires() time.Time
+	Extend(duration time.Duration)
 }
 
 type nilItem struct{}
@@ -30,6 +31,9 @@ func (i *nilItem) TTL() time.Duration {
 
 func (i *nilItem) Expires() time.Time {
 	return time.Time{}
+}
+
+func (i *nilItem) Extend(duration time.Duration) {
 }
 
 var NilTracked = new(nilItem)
@@ -70,13 +74,20 @@ func (i *Item) Release() {
 }
 
 func (i *Item) Expired() bool {
-	return i.expires < time.Now().Unix()
+	expires := atomic.LoadInt64(&i.expires)
+	return expires < time.Now().Unix()
 }
 
 func (i *Item) TTL() time.Duration {
-	return time.Second * time.Duration(i.expires - time.Now().Unix())
+	expires := atomic.LoadInt64(&i.expires)
+	return time.Second * time.Duration(expires - time.Now().Unix())
 }
 
 func (i *Item) Expires() time.Time {
-	return time.Unix(i.expires, 0)
+	expires := atomic.LoadInt64(&i.expires)
+	return time.Unix(expires, 0)
+}
+
+func (i *Item) Extend(duration time.Duration) {
+	atomic.StoreInt64(&i.expires, time.Now().Add(duration).Unix())
 }

@@ -34,9 +34,15 @@ func (i *ItemTests) TTL() {
 	Expect(item2.TTL()).To.Equal(time.Second * -10)
 }
 
-
 func (i *ItemTests) Expires() {
 	now := time.Now().Unix()
-	item1 := &Item{expires: now + 10}
-	Expect(item1.Expires().Unix()).To.Equal(now + 10)
+	item := &Item{expires: now + 10}
+	Expect(item.Expires().Unix()).To.Equal(now + 10)
+}
+
+
+func (i *ItemTests) Extend() {
+	item := &Item{expires: time.Now().Unix() + 10}
+	item.Extend(time.Minute * 2)
+	Expect(item.Expires().Unix()).To.Equal(time.Now().Unix() + 120)
 }
