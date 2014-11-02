@@ -12,7 +12,7 @@ type LayeredCache struct {
 	*Configuration
 	list        *list.List
 	buckets     []*LayeredBucket
-	bucketCount uint32
+	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
 }
@@ -21,7 +21,7 @@ func Layered(config *Configuration) *LayeredCache {
 	c := &LayeredCache{
 		list:          list.New(),
 		Configuration: config,
-		bucketCount:   uint32(config.buckets),
+		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*LayeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
@@ -101,7 +101,7 @@ func (c *LayeredCache) Clear() {
 func (c *LayeredCache) bucket(key string) *LayeredBucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
-	return c.buckets[h.Sum32()%c.bucketCount]
+	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
 func (c *LayeredCache) conditionalPromote(item *Item) {

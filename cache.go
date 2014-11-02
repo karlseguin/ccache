@@ -12,7 +12,7 @@ type Cache struct {
 	*Configuration
 	list        *list.List
 	buckets     []*Bucket
-	bucketCount uint32
+	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
 }
@@ -21,7 +21,7 @@ func New(config *Configuration) *Cache {
 	c := &Cache{
 		list:          list.New(),
 		Configuration: config,
-		bucketCount:   uint32(config.buckets),
+		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*Bucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
@@ -102,7 +102,7 @@ func (c *Cache) deleteItem(bucket *Bucket, item *Item) {
 func (c *Cache) bucket(key string) *Bucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
-	return c.buckets[h.Sum32()%c.bucketCount]
+	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
 func (c *Cache) conditionalPromote(item *Item) {

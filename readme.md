@@ -39,7 +39,7 @@ The most likely configuration options to tweak are:
 
 Configurations that change the internals of the cache, which aren't as likely to need tweaking:
 
-* `Buckets` - ccache shards its internal map to provide a greater amount of concurrency. The number of buckets is configurable (default: 16)
+* `Buckets` - ccache shards its internal map to provide a greater amount of concurrency. Must be a power of 2 (default: 16).
 * `PromoteBuffer(int)` - the size of the buffer to use to queue promotions (default: 1024)
 * `DeleteBuffer(int)` the size of the buffer to use to queue deletions (default: 1024)
 

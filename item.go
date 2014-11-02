@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-
 type TrackedItem interface {
 	Value() interface{}
 	Release()
@@ -80,7 +79,7 @@ func (i *Item) Expired() bool {
 
 func (i *Item) TTL() time.Duration {
 	expires := atomic.LoadInt64(&i.expires)
-	return time.Second * time.Duration(expires - time.Now().Unix())
+	return time.Second * time.Duration(expires-time.Now().Unix())
 }
 
 func (i *Item) Expires() time.Time {

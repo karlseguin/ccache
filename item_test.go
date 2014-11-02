@@ -40,7 +40,6 @@ func (i *ItemTests) Expires() {
 	Expect(item.Expires().Unix()).To.Equal(now + 10)
 }
 
-
 func (i *ItemTests) Extend() {
 	item := &Item{expires: time.Now().Unix() + 10}
 	item.Extend(time.Minute * 2)

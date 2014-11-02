@@ -30,9 +30,12 @@ func (c *Configuration) MaxItems(max uint64) *Configuration {
 }
 
 // Keys are hashed into % bucket count to provide greater concurrency (every set
-// requires a write lock on the bucket)
-// [64]
+// requires a write lock on the bucket). Must be a power of 2 (1, 2, 4, 8, 16, ...)
+// [16]
 func (c *Configuration) Buckets(count uint32) *Configuration {
+	if count == 0 || ((count&(^count+1)) == count) == false {
+		count = 16
+	}
 	c.buckets = int(count)
 	return c
 }
