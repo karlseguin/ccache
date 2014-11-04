@@ -119,7 +119,7 @@ More important, it helps ensure that you're code returns consistent data. With t
 
 CCache's `LayeredCache` stores and retrieves values by both a primary and secondary key. Deletion can happen against either the primary and secondary key, or the primary key only (removing all values that share the same primary key).
 
-`LayeredCache` is useful for HTTP caching, when you want to purge all variations of a request. Consider:
+`LayeredCache` is useful for HTTP caching, when you want to purge all variations of a request.
 
 `LayeredCache` takes the same configuration object as the main cache, exposes the same optional tracking capabilities, but exposes a slightly different API:
 
