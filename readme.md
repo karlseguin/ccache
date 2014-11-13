@@ -92,6 +92,15 @@ cache.Delete("user:4")
 ### Extend
 The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
 
+### Replace
+The value of an item can be updated to a new value without renewing the item's TTL or it's position in the LRU:
+
+```go
+cache.Replace("user:4", user)
+```
+
+`Replace` returns true if the item existed (and thus was replaced). In the case where the key was not in the cache, the value *is not* inserted and false is returned.
+
 ## Tracking
 CCache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
 

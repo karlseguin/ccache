@@ -48,6 +48,18 @@ func (b *BucketTests) SetsAnExistingItem() {
 	Expect(new).To.Equal(false)
 }
 
+func (b *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
+	bucket := testBucket()
+	item, _ := bucket.set("power", TestValue("9002"), time.Minute)
+	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)
+	Expect(item.Value().(string)).To.Equal("9004")
+}
+
+func (b *BucketTests) ReplaceReplacesThevalue() {
+	bucket := testBucket()
+	Expect(bucket.replace("power", TestValue("9002"))).To.Equal(false)
+}
+
 func testBucket() *Bucket {
 	b := &Bucket{lookup: make(map[string]*Item)}
 	b.lookup["power"] = &Item{

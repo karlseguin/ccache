@@ -65,6 +65,10 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	}
 }
 
+func (c *Cache) Replace(key string, value interface{}) bool {
+	return c.bucket(key).replace(key, value)
+}
+
 func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
 	item := c.Get(key)
 	if item != nil {

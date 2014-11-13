@@ -30,6 +30,17 @@ func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*It
 	return item, true
 }
 
+func (b *Bucket) replace(key string, value interface{}) bool {
+	b.Lock()
+	defer b.Unlock()
+	existing, exists := b.lookup[key]
+	if exists == false {
+		return false
+	}
+	existing.value = value
+	return true
+}
+
 func (b *Bucket) delete(key string) *Item {
 	b.Lock()
 	defer b.Unlock()
