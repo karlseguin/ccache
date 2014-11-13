@@ -65,6 +65,10 @@ func (c *LayeredCache) Set(primary, secondary string, value interface{}, duratio
 	}
 }
 
+func (c *LayeredCache) Replace(primary, secondary string, value interface{}) bool {
+	return c.bucket(primary).replace(primary, secondary, value)
+}
+
 func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
 	item := c.Get(primary, secondary)
 	if item != nil {

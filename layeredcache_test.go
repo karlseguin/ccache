@@ -39,6 +39,18 @@ func (l *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 	Expect(cache.Get("baron", "friend")).To.Equal(nil)
 }
 
+func (l *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
+	cache := newLayered()
+	Expect(cache.Replace("spice", "flow", "value-a")).To.Equal(false)
+}
+
+func (l *LayeredCacheTests) ReplaceUpdatesTheValue() {
+	cache := newLayered()
+	cache.Set("spice", "flow", "value-a", time.Minute)
+	Expect(cache.Replace("spice", "flow", "value-b")).To.Equal(true)
+	Expect(cache.Get("spice", "flow").Value().(string)).To.Equal("value-b")
+}
+
 func (l *LayeredCacheTests) DeletesAValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
@@ -124,10 +136,6 @@ func (c *LayeredCacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("3", "a").Value()).To.Equal(3)
 	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
 }
-
-// func (c *LayeredCacheTests) GetsAnExpiredIten() {
-
-// }
 
 func newLayered() *LayeredCache {
 	return Layered(Configure())

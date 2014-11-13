@@ -35,6 +35,16 @@ func (b *LayeredBucket) set(primary, secondary string, value interface{}, durati
 	return item, new
 }
 
+func (b *LayeredBucket) replace(primary, secondary string, value interface{}) bool {
+	b.Lock()
+	bucket, exists := b.buckets[primary]
+	b.Unlock()
+	if exists == false {
+		return false
+	}
+	return bucket.replace(secondary, value)
+}
+
 func (b *LayeredBucket) delete(primary, secondary string) *Item {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
