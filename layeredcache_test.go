@@ -42,6 +42,7 @@ func (l *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 func (l *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
 	cache := newLayered()
 	Expect(cache.Replace("spice", "flow", "value-a")).To.Equal(false)
+	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 }
 
 func (l *LayeredCacheTests) ReplaceUpdatesTheValue() {
@@ -49,6 +50,7 @@ func (l *LayeredCacheTests) ReplaceUpdatesTheValue() {
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	Expect(cache.Replace("spice", "flow", "value-b")).To.Equal(true)
 	Expect(cache.Get("spice", "flow").Value().(string)).To.Equal("value-b")
+	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
 func (l *LayeredCacheTests) DeletesAValue() {

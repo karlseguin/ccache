@@ -50,14 +50,17 @@ func (b *BucketTests) SetsAnExistingItem() {
 
 func (b *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
 	bucket := testBucket()
-	item, _ := bucket.set("power", TestValue("9002"), time.Minute)
-	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)
-	Expect(item.Value().(string)).To.Equal("9004")
+	Expect(bucket.replace("power", TestValue("9002"))).To.Equal(false)
+	Expect(bucket.get("power")).To.Equal(nil)
 }
 
 func (b *BucketTests) ReplaceReplacesThevalue() {
 	bucket := testBucket()
-	Expect(bucket.replace("power", TestValue("9002"))).To.Equal(false)
+	item, _ := bucket.set("power", TestValue("9002"), time.Minute)
+	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)
+	Expect(item.Value().(string)).To.Equal("9004")
+	Expect(bucket.get("power").Value().(string)).To.Equal("9004")
+	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
 func testBucket() *Bucket {
