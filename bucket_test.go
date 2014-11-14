@@ -13,24 +13,24 @@ func Tests_Bucket(t *testing.T) {
 	Expectify(new(BucketTests), t)
 }
 
-func (b *BucketTests) GetMissFromBucket() {
+func (_ *BucketTests) GetMissFromBucket() {
 	bucket := testBucket()
 	Expect(bucket.get("invalid")).To.Equal(nil)
 }
 
-func (b *BucketTests) GetHitFromBucket() {
+func (_ *BucketTests) GetHitFromBucket() {
 	bucket := testBucket()
 	item := bucket.get("power")
 	assertValue(item, "9000")
 }
 
-func (b *BucketTests) DeleteItemFromBucket() {
+func (_ *BucketTests) DeleteItemFromBucket() {
 	bucket := testBucket()
 	bucket.delete("power")
 	Expect(bucket.get("power")).To.Equal(nil)
 }
 
-func (b *BucketTests) SetsANewBucketItem() {
+func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
 	item, new := bucket.set("spice", TestValue("flow"), time.Minute)
 	assertValue(item, "flow")
@@ -39,7 +39,7 @@ func (b *BucketTests) SetsANewBucketItem() {
 	Expect(new).To.Equal(true)
 }
 
-func (b *BucketTests) SetsAnExistingItem() {
+func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
 	item, new := bucket.set("power", TestValue("9002"), time.Minute)
 	assertValue(item, "9002")
@@ -48,13 +48,13 @@ func (b *BucketTests) SetsAnExistingItem() {
 	Expect(new).To.Equal(false)
 }
 
-func (b *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
+func (_ *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
 	bucket := testBucket()
 	Expect(bucket.replace("power", TestValue("9002"))).To.Equal(false)
 	Expect(bucket.get("power")).To.Equal(nil)
 }
 
-func (b *BucketTests) ReplaceReplacesThevalue() {
+func (_ *BucketTests) ReplaceReplacesThevalue() {
 	bucket := testBucket()
 	item, _ := bucket.set("power", TestValue("9002"), time.Minute)
 	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)

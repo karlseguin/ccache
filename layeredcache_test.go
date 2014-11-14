@@ -13,19 +13,19 @@ func Test_LayeredCache(t *testing.T) {
 	Expectify(new(LayeredCacheTests), t)
 }
 
-func (l *LayeredCacheTests) GetsANonExistantValue() {
+func (_ *LayeredCacheTests) GetsANonExistantValue() {
 	cache := newLayered()
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 }
 
-func (l *LayeredCacheTests) SetANewValue() {
+func (_ *LayeredCacheTests) SetANewValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "a value", time.Minute)
 	Expect(cache.Get("spice", "flow").Value()).To.Equal("a value")
 	Expect(cache.Get("spice", "stop")).To.Equal(nil)
 }
 
-func (l *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
+func (_ *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
@@ -39,13 +39,13 @@ func (l *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 	Expect(cache.Get("baron", "friend")).To.Equal(nil)
 }
 
-func (l *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
+func (_ *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
 	cache := newLayered()
 	Expect(cache.Replace("spice", "flow", "value-a")).To.Equal(false)
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 }
 
-func (l *LayeredCacheTests) ReplaceUpdatesTheValue() {
+func (_ *LayeredCacheTests) ReplaceUpdatesTheValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	Expect(cache.Replace("spice", "flow", "value-b")).To.Equal(true)
@@ -53,7 +53,7 @@ func (l *LayeredCacheTests) ReplaceUpdatesTheValue() {
 	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
-func (l *LayeredCacheTests) DeletesAValue() {
+func (_ *LayeredCacheTests) DeletesAValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
@@ -65,7 +65,7 @@ func (l *LayeredCacheTests) DeletesAValue() {
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 }
 
-func (l *LayeredCacheTests) DeletesALayer() {
+func (_ *LayeredCacheTests) DeletesALayer() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
