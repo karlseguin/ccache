@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-type LayeredBucket struct {
+type layeredBucket struct {
 	sync.RWMutex
-	buckets map[string]*Bucket
+	buckets map[string]*bucket
 }
 
-func (b *LayeredBucket) get(primary, secondary string) *Item {
+func (b *layeredBucket) get(primary, secondary string) *Item {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
@@ -20,22 +20,22 @@ func (b *LayeredBucket) get(primary, secondary string) *Item {
 	return bucket.get(secondary)
 }
 
-func (b *LayeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, bool) {
+func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, bool) {
 	b.Lock()
-	bucket, exists := b.buckets[primary]
+	bkt, exists := b.buckets[primary]
 	if exists == false {
-		bucket = &Bucket{lookup: make(map[string]*Item)}
-		b.buckets[primary] = bucket
+		bkt = &bucket{lookup: make(map[string]*Item)}
+		b.buckets[primary] = bkt
 	}
 	b.Unlock()
-	item, new := bucket.set(secondary, value, duration)
+	item, new := bkt.set(secondary, value, duration)
 	if new {
 		item.group = primary
 	}
 	return item, new
 }
 
-func (b *LayeredBucket) replace(primary, secondary string, value interface{}) bool {
+func (b *layeredBucket) replace(primary, secondary string, value interface{}) bool {
 	b.Lock()
 	bucket, exists := b.buckets[primary]
 	b.Unlock()
@@ -45,7 +45,7 @@ func (b *LayeredBucket) replace(primary, secondary string, value interface{}) bo
 	return bucket.replace(secondary, value)
 }
 
-func (b *LayeredBucket) delete(primary, secondary string) *Item {
+func (b *layeredBucket) delete(primary, secondary string) *Item {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
@@ -55,7 +55,7 @@ func (b *LayeredBucket) delete(primary, secondary string) *Item {
 	return bucket.delete(secondary)
 }
 
-func (b *LayeredBucket) deleteAll(primary string, deletables chan *Item) bool {
+func (b *layeredBucket) deleteAll(primary string, deletables chan *Item) bool {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
@@ -76,11 +76,11 @@ func (b *LayeredBucket) deleteAll(primary string, deletables chan *Item) bool {
 	return true
 }
 
-func (b *LayeredBucket) clear() {
+func (b *layeredBucket) clear() {
 	b.Lock()
 	defer b.Unlock()
 	for _, bucket := range b.buckets {
 		bucket.clear()
 	}
-	b.buckets = make(map[string]*Bucket)
+	b.buckets = make(map[string]*bucket)
 }

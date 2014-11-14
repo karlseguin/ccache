@@ -63,8 +63,8 @@ func (_ *BucketTests) ReplaceReplacesThevalue() {
 	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
-func testBucket() *Bucket {
-	b := &Bucket{lookup: make(map[string]*Item)}
+func testBucket() *bucket {
+	b := &bucket{lookup: make(map[string]*Item)}
 	b.lookup["power"] = &Item{
 		key:   "power",
 		value: TestValue("9000"),

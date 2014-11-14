@@ -10,6 +10,9 @@ type Configuration struct {
 	tracking       bool
 }
 
+// Creates a configuration object with sensible defaults
+// Use this as the start of the fluent configuration:
+// e.g.: ccache.New(ccache.Configure().MaxItems(10000))
 func Configure() *Configuration {
 	return &Configuration{
 		buckets:        16,
@@ -73,7 +76,7 @@ func (c *Configuration) GetsPerPromote(count int32) *Configuration {
 
 // Typically, a cache is agnostic about how cached values are use. This is fine
 // for a typical cache usage, where you fetch an item from the cache, do something
-// (write it out to) and nothing else.
+// (write it out) and nothing else.
 
 // However, if callers are going to keep a reference to a cached item for a long
 // time, things get messy. Specifically, the cache can evict the item, while

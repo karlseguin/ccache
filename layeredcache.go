@@ -11,30 +11,47 @@ import (
 type LayeredCache struct {
 	*Configuration
 	list        *list.List
-	buckets     []*LayeredBucket
+	buckets     []*layeredBucket
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
 }
 
+// Create a new layered cache with the specified configuration.
+// A layered cache used a two keys to identify a value: a primary key
+// and a secondary key. Get, Set and Delete require both a primary and
+// secondary key. However, DeleteAll requires only a primary key, deleting
+// all values that share the same primary key.
+
+// Layered Cache is useful as an HTTP cache, where an HTTP purge might
+// delete multiple variants of the same resource:
+// primary key = "user/44"
+// secondary key 1 = ".json"
+// secondary key 2 = ".xml"
+
+// See ccache.Configure() for creating a configuration
 func Layered(config *Configuration) *LayeredCache {
 	c := &LayeredCache{
 		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
-		buckets:       make([]*LayeredBucket, config.buckets),
+		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = &LayeredBucket{
-			buckets: make(map[string]*Bucket),
+		c.buckets[i] = &layeredBucket{
+			buckets: make(map[string]*bucket),
 		}
 	}
 	go c.worker()
 	return c
 }
 
+// Get an item from the cache. Returns nil if the item wasn't found.
+// This can return an expired item. Use item.Expired() to see if the item
+// is expired and item.TTL() to see how long until the item expires (which
+// will be negative for an already expired item).
 func (c *LayeredCache) Get(primary, secondary string) *Item {
 	bucket := c.bucket(primary)
 	item := bucket.get(primary, secondary)
@@ -47,6 +64,8 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
+// Used when the cache was created with the Track() configuration option.
+// Avoid otherwise
 func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 	item := c.Get(primary, secondary)
 	if item == nil {
@@ -56,6 +75,7 @@ func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 	return item
 }
 
+// Set the value in the cache for the specified duration
 func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
 	item, new := c.bucket(primary).set(primary, secondary, value, duration)
 	if new {
@@ -65,10 +85,16 @@ func (c *LayeredCache) Set(primary, secondary string, value interface{}, duratio
 	}
 }
 
+// Replace the value if it exists, does not set if it doesn't.
+// Returns true if the item existed an was replaced, false otherwise.
+// Replace does not reset item's TTL nor does it alter its position in the LRU
 func (c *LayeredCache) Replace(primary, secondary string, value interface{}) bool {
 	return c.bucket(primary).replace(primary, secondary, value)
 }
 
+// Attempts to get the value from the cache and calles fetch on a miss.
+// If fetch returns an error, no value is cached and the error is returned back
+// to the caller.
 func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
 	item := c.Get(primary, secondary)
 	if item != nil {
@@ -81,6 +107,7 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 	return value, err
 }
 
+// Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *LayeredCache) Delete(primary, secondary string) bool {
 	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
@@ -90,6 +117,7 @@ func (c *LayeredCache) Delete(primary, secondary string) bool {
 	return false
 }
 
+// Deletes all items that share the same primary key
 func (c *LayeredCache) DeleteAll(primary string) bool {
 	return c.bucket(primary).deleteAll(primary, c.deletables)
 }
@@ -102,7 +130,7 @@ func (c *LayeredCache) Clear() {
 	c.list = list.New()
 }
 
-func (c *LayeredCache) bucket(key string) *LayeredBucket {
+func (c *LayeredCache) bucket(key string) *layeredBucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]

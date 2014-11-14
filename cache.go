@@ -11,23 +11,25 @@ import (
 type Cache struct {
 	*Configuration
 	list        *list.List
-	buckets     []*Bucket
+	buckets     []*bucket
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
 }
 
+// Create a new cache with the specified configuration
+// See ccache.Configure() for creating a configuration
 func New(config *Configuration) *Cache {
 	c := &Cache{
 		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
-		buckets:       make([]*Bucket, config.buckets),
+		buckets:       make([]*bucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
 		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = &Bucket{
+		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
 	}
@@ -35,6 +37,10 @@ func New(config *Configuration) *Cache {
 	return c
 }
 
+// Get an item from the cache. Returns nil if the item wasn't found.
+// This can return an expired item. Use item.Expired() to see if the item
+// is expired and item.TTL() to see how long until the item expires (which
+// will be negative for an already expired item).
 func (c *Cache) Get(key string) *Item {
 	bucket := c.bucket(key)
 	item := bucket.get(key)
@@ -47,6 +53,8 @@ func (c *Cache) Get(key string) *Item {
 	return item
 }
 
+// Used when the cache was created with the Track() configuration option.
+// Avoid otherwise
 func (c *Cache) TrackingGet(key string) TrackedItem {
 	item := c.Get(key)
 	if item == nil {
@@ -56,6 +64,7 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 	return item
 }
 
+// Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	item, new := c.bucket(key).set(key, value, duration)
 	if new {
@@ -65,10 +74,16 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 	}
 }
 
+// Replace the value if it exists, does not set if it doesn't.
+// Returns true if the item existed an was replaced, false otherwise.
+// Replace does not reset item's TTL nor does it alter its position in the LRU
 func (c *Cache) Replace(key string, value interface{}) bool {
 	return c.bucket(key).replace(key, value)
 }
 
+// Attempts to get the value from the cache and calles fetch on a miss.
+// If fetch returns an error, no value is cached and the error is returned back
+// to the caller.
 func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
 	item := c.Get(key)
 	if item != nil {
@@ -81,6 +96,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	return value, err
 }
 
+// Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *Cache) Delete(key string) bool {
 	item := c.bucket(key).delete(key)
 	if item != nil {
@@ -98,12 +114,12 @@ func (c *Cache) Clear() {
 	c.list = list.New()
 }
 
-func (c *Cache) deleteItem(bucket *Bucket, item *Item) {
+func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	bucket.delete(item.key) //stop other GETs from getting it
 	c.deletables <- item
 }
 
-func (c *Cache) bucket(key string) *Bucket {
+func (c *Cache) bucket(key string) *bucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]

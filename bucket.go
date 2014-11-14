@@ -5,18 +5,18 @@ import (
 	"time"
 )
 
-type Bucket struct {
+type bucket struct {
 	sync.RWMutex
 	lookup map[string]*Item
 }
 
-func (b *Bucket) get(key string) *Item {
+func (b *bucket) get(key string) *Item {
 	b.RLock()
 	defer b.RUnlock()
 	return b.lookup[key]
 }
 
-func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool) {
+func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool) {
 	expires := time.Now().Add(duration).Unix()
 	b.Lock()
 	defer b.Unlock()
@@ -30,7 +30,7 @@ func (b *Bucket) set(key string, value interface{}, duration time.Duration) (*It
 	return item, true
 }
 
-func (b *Bucket) replace(key string, value interface{}) bool {
+func (b *bucket) replace(key string, value interface{}) bool {
 	b.Lock()
 	defer b.Unlock()
 	existing, exists := b.lookup[key]
@@ -41,7 +41,7 @@ func (b *Bucket) replace(key string, value interface{}) bool {
 	return true
 }
 
-func (b *Bucket) delete(key string) *Item {
+func (b *bucket) delete(key string) *Item {
 	b.Lock()
 	defer b.Unlock()
 	item := b.lookup[key]
@@ -49,7 +49,7 @@ func (b *Bucket) delete(key string) *Item {
 	return item
 }
 
-func (b *Bucket) clear() {
+func (b *bucket) clear() {
 	b.Lock()
 	defer b.Unlock()
 	b.lookup = make(map[string]*Item)
