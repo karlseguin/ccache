@@ -11,6 +11,7 @@ import (
 type Cache struct {
 	*Configuration
 	list        *list.List
+	size        uint64
 	buckets     []*bucket
 	bucketMask  uint32
 	deletables  chan *Item
@@ -111,6 +112,7 @@ func (c *Cache) Clear() {
 	for _, bucket := range c.buckets {
 		bucket.clear()
 	}
+	c.size = 0
 	c.list = list.New()
 }
 
@@ -140,13 +142,14 @@ func (c *Cache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && uint64(c.list.Len()) > c.maxItems {
+			if c.doPromote(item) && c.size > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
 				item.promotions = -2
 			} else {
+				c.size -= 1
 				c.list.Remove(item.element)
 			}
 		}
@@ -163,6 +166,7 @@ func (c *Cache) doPromote(item *Item) bool {
 		c.list.MoveToFront(item.element)
 		return false
 	}
+	c.size += 1
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -177,6 +181,7 @@ func (c *Cache) gc() {
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
+			c.size -= 1
 			c.list.Remove(element)
 		}
 		element = prev

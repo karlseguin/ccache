@@ -13,7 +13,7 @@ func Test_Cache(t *testing.T) {
 	Expectify(new(CacheTests), t)
 }
 
-func (_ *CacheTests) DeletesAValue() {
+func (_ CacheTests) DeletesAValue() {
 	cache := New(Configure())
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
@@ -22,7 +22,7 @@ func (_ *CacheTests) DeletesAValue() {
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
 }
 
-func (_ *CacheTests) GCsTheOldestItems() {
+func (_ CacheTests) GCsTheOldestItems() {
 	cache := New(Configure().ItemsToPrune(10))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
@@ -34,7 +34,7 @@ func (_ *CacheTests) GCsTheOldestItems() {
 	Expect(cache.Get("10").Value()).To.Equal(10)
 }
 
-func (_ *CacheTests) PromotedItemsDontGetPruned() {
+func (_ CacheTests) PromotedItemsDontGetPruned() {
 	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
@@ -48,7 +48,7 @@ func (_ *CacheTests) PromotedItemsDontGetPruned() {
 	Expect(cache.Get("11").Value()).To.Equal(11)
 }
 
-func (_ *CacheTests) TrackerDoesNotCleanupHeldInstance() {
+func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := New(Configure().ItemsToPrune(10).Track())
 	for i := 0; i < 10; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
@@ -63,7 +63,7 @@ func (_ *CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	Expect(cache.Get("0")).To.Equal(nil)
 }
 
-func (_ *CacheTests) RemovesOldestItemWhenFull() {
+func (_ CacheTests) RemovesOldestItemWhenFull() {
 	cache := New(Configure().MaxItems(5).ItemsToPrune(1))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)

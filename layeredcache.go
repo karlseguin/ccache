@@ -13,6 +13,7 @@ type LayeredCache struct {
 	list        *list.List
 	buckets     []*layeredBucket
 	bucketMask  uint32
+	size        uint64
 	deletables  chan *Item
 	promotables chan *Item
 }
@@ -151,13 +152,14 @@ func (c *LayeredCache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && uint64(c.list.Len()) > c.maxItems {
+			if c.doPromote(item) && c.size > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
 				item.promotions = -2
 			} else {
+				c.size -= 1
 				c.list.Remove(item.element)
 			}
 		}
@@ -175,6 +177,7 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 		c.list.MoveToFront(item.element)
 		return false
 	}
+	c.size += 1
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -188,6 +191,7 @@ func (c *LayeredCache) gc() {
 		prev := element.Prev()
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
+			c.size -= 1
 			c.bucket(item.group).delete(item.group, item.key)
 			c.list.Remove(element)
 		}
