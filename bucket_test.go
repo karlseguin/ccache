@@ -32,20 +32,22 @@ func (_ *BucketTests) DeleteItemFromBucket() {
 
 func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
-	item, new := bucket.set("spice", TestValue("flow"), time.Minute)
+	item, new, d := bucket.set("spice", TestValue("flow"), time.Minute)
 	assertValue(item, "flow")
 	item = bucket.get("spice")
 	assertValue(item, "flow")
 	Expect(new).To.Equal(true)
+	Expect(d).To.Equal(1)
 }
 
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
-	item, new := bucket.set("power", TestValue("9002"), time.Minute)
+	item, new, d := bucket.set("power", TestValue("9002"), time.Minute)
 	assertValue(item, "9002")
 	item = bucket.get("power")
 	assertValue(item, "9002")
 	Expect(new).To.Equal(false)
+	Expect(d).To.Equal(0)
 }
 
 func (_ *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
@@ -56,7 +58,7 @@ func (_ *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
 
 func (_ *BucketTests) ReplaceReplacesThevalue() {
 	bucket := testBucket()
-	item, _ := bucket.set("power", TestValue("9002"), time.Minute)
+	item, _, _ := bucket.set("power", TestValue("9002"), time.Minute)
 	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)
 	Expect(item.Value().(string)).To.Equal("9004")
 	Expect(bucket.get("power").Value().(string)).To.Equal("9004")

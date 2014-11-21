@@ -1,7 +1,7 @@
 package ccache
 
 type Configuration struct {
-	maxItems       uint64
+	maxItems       int64
 	buckets        int
 	itemsToPrune   int
 	deleteBuffer   int
@@ -27,7 +27,7 @@ func Configure() *Configuration {
 
 // The max number of items to store in the cache
 // [5000]
-func (c *Configuration) MaxItems(max uint64) *Configuration {
+func (c *Configuration) MaxItems(max int64) *Configuration {
 	c.maxItems = max
 	return c
 }

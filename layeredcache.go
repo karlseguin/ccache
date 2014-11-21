@@ -13,7 +13,7 @@ type LayeredCache struct {
 	list        *list.List
 	buckets     []*layeredBucket
 	bucketMask  uint32
-	size        uint64
+	size        int64
 	deletables  chan *Item
 	promotables chan *Item
 }
@@ -78,11 +78,14 @@ func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
-	item, new := c.bucket(primary).set(primary, secondary, value, duration)
+	item, new, d := c.bucket(primary).set(primary, secondary, value, duration)
 	if new {
 		c.promote(item)
 	} else {
 		c.conditionalPromote(item)
+	}
+	if d != 0 {
+		atomic.AddInt64(&c.size, d)
 	}
 }
 
@@ -128,6 +131,7 @@ func (c *LayeredCache) Clear() {
 	for _, bucket := range c.buckets {
 		bucket.clear()
 	}
+	c.size = 0
 	c.list = list.New()
 }
 
@@ -152,14 +156,14 @@ func (c *LayeredCache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && c.size > c.maxItems {
+			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
 				item.promotions = -2
 			} else {
-				c.size -= 1
+				atomic.AddInt64(&c.size,  -item.size)
 				c.list.Remove(item.element)
 			}
 		}
@@ -177,7 +181,6 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 		c.list.MoveToFront(item.element)
 		return false
 	}
-	c.size += 1
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -191,7 +194,7 @@ func (c *LayeredCache) gc() {
 		prev := element.Prev()
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
-			c.size -= 1
+			atomic.AddInt64(&c.size, -item.size)
 			c.bucket(item.group).delete(item.group, item.key)
 			c.list.Remove(element)
 		}

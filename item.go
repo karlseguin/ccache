@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+type Sized interface {
+	Size() int64
+}
+
 type TrackedItem interface {
 	Value() interface{}
 	Release()
@@ -43,15 +47,21 @@ type Item struct {
 	promotions int32
 	refCount   int32
 	expires    int64
+	size       int64
 	value      interface{}
 	element    *list.Element
 }
 
 func newItem(key string, value interface{}, expires int64) *Item {
+	size := int64(1)
+	if sized, ok := value.(Sized); ok {
+		size = sized.Size()
+	}
 	return &Item{
 		key:        key,
 		value:      value,
 		promotions: -1,
+		size:       size,
 		expires:    expires,
 	}
 }

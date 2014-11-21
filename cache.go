@@ -11,7 +11,7 @@ import (
 type Cache struct {
 	*Configuration
 	list        *list.List
-	size        uint64
+	size        int64
 	buckets     []*bucket
 	bucketMask  uint32
 	deletables  chan *Item
@@ -67,11 +67,14 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	item, new := c.bucket(key).set(key, value, duration)
+	item, new, d := c.bucket(key).set(key, value, duration)
 	if new {
 		c.promote(item)
 	} else {
 		c.conditionalPromote(item)
+	}
+	if d != 0 {
+		atomic.AddInt64(&c.size, d)
 	}
 }
 
@@ -142,14 +145,14 @@ func (c *Cache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && c.size > c.maxItems {
+			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxItems {
 				c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
 				item.promotions = -2
 			} else {
-				c.size -= 1
+				atomic.AddInt64(&c.size,  -item.size)
 				c.list.Remove(item.element)
 			}
 		}
@@ -166,7 +169,6 @@ func (c *Cache) doPromote(item *Item) bool {
 		c.list.MoveToFront(item.element)
 		return false
 	}
-	c.size += 1
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -181,7 +183,7 @@ func (c *Cache) gc() {
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
-			c.size -= 1
+			atomic.AddInt64(&c.size, -item.size)
 			c.list.Remove(element)
 		}
 		element = prev

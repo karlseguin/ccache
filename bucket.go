@@ -2,6 +2,7 @@ package ccache
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -16,18 +17,27 @@ func (b *bucket) get(key string) *Item {
 	return b.lookup[key]
 }
 
-func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool) {
+func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, bool, int64) {
 	expires := time.Now().Add(duration).Unix()
 	b.Lock()
 	defer b.Unlock()
 	if existing, exists := b.lookup[key]; exists {
+		s := existing.size
 		existing.value = value
 		existing.expires = expires
-		return existing, false
+		d := int64(0)
+		if sized, ok := value.(Sized); ok {
+			newSize := sized.Size()
+			d = newSize - s
+			if d != 0 {
+				atomic.StoreInt64(&existing.size, newSize)
+			}
+		}
+		return existing, false, int64(d)
 	}
 	item := newItem(key, value, expires)
 	b.lookup[key] = item
-	return item, true
+	return item, true, int64(item.size)
 }
 
 func (b *bucket) replace(key string, value interface{}) bool {
