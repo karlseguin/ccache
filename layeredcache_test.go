@@ -124,7 +124,7 @@ func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
-	cache := Layered(Configure().MaxItems(5).ItemsToPrune(1))
+	cache := Layered(Configure().MaxSize(5).ItemsToPrune(1))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -144,7 +144,7 @@ func newLayered() *LayeredCache {
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
-	cache := Layered(Configure().MaxItems(9).ItemsToPrune(2))
+	cache := Layered(Configure().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set("pri", strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}

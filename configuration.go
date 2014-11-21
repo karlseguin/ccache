@@ -1,7 +1,7 @@
 package ccache
 
 type Configuration struct {
-	maxItems       int64
+	maxSize        int64
 	buckets        int
 	itemsToPrune   int
 	deleteBuffer   int
@@ -12,7 +12,7 @@ type Configuration struct {
 
 // Creates a configuration object with sensible defaults
 // Use this as the start of the fluent configuration:
-// e.g.: ccache.New(ccache.Configure().MaxItems(10000))
+// e.g.: ccache.New(ccache.Configure().MaxSize(10000))
 func Configure() *Configuration {
 	return &Configuration{
 		buckets:        16,
@@ -20,15 +20,15 @@ func Configure() *Configuration {
 		deleteBuffer:   1024,
 		getsPerPromote: 3,
 		promoteBuffer:  1024,
-		maxItems:       5000,
+		maxSize:        5000,
 		tracking:       false,
 	}
 }
 
-// The max number of items to store in the cache
+// The max size for the cache
 // [5000]
-func (c *Configuration) MaxItems(max int64) *Configuration {
-	c.maxItems = max
+func (c *Configuration) MaxSize(max int64) *Configuration {
+	c.maxSize = max
 	return c
 }
 

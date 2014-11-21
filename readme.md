@@ -28,14 +28,14 @@ var cache = ccache.New(ccache.Configure())
 `Configure` exposes a chainable API:
 
 ```go
-var cache = ccache.New(ccache.Configure().MaxItems(1000).itemsToPrune(100))
+var cache = ccache.New(ccache.Configure().MaxSize(1000).itemsToPrune(100))
 ```
 
 The most likely configuration options to tweak are:
 
-* `MaxItems(int)` - the maximum number of items to store in the cache (default: 5000)
+* `MaxSize(int)` - the maximum number size  to store in the cache (default: 5000)
 * `GetsPerPromote(int)` - the number of times an item is fetched before we promote it. For large caches with long TTLs, it normally isn't necessary to promote an item after every fetch (default: 3)
-* `ItemsToPrune(int)` - the number of items to prune when we hit `MaxItems`. Freeing up more than 1 slot at a time improved performance (default: 500)
+* `ItemsToPrune(int)` - the number of items to prune when we hit `MaxSize`. Freeing up more than 1 slot at a time improved performance (default: 500)
 
 Configurations that change the internals of the cache, which aren't as likely to need tweaking:
 
@@ -146,3 +146,7 @@ cache.Delete("/users/goku", "type:xml")
 // OR
 cache.DeleteAll("/users/goku")
 ```
+## Size
+By default, items added to a cache have a size of 1. This means that if you configure `MaxSize(10000)`, you'll be able to store 10000 items in the cache.
+
+However, if the values you set into the cache have a method `Size() int64`, this size will be used. Note that ccache has an overhead of ~350 bytes per entry, which isn't taken into account. In other words, given a filled up cache, with `MaxSize(4096000)` and items that return a `Size() int64` of 2048, we can expect to find 2000 items (4096000/2048) taking a total space of 4796000 bytes.

@@ -64,7 +64,7 @@ func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFull() {
-	cache := New(Configure().MaxItems(5).ItemsToPrune(1))
+	cache := New(Configure().MaxSize(5).ItemsToPrune(1))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -75,7 +75,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
-	cache := New(Configure().MaxItems(9).ItemsToPrune(2))
+	cache := New(Configure().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}

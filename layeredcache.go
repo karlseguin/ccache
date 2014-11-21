@@ -156,7 +156,7 @@ func (c *LayeredCache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxItems {
+			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxSize {
 				c.gc()
 			}
 		case item := <-c.deletables:
