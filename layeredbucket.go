@@ -35,12 +35,12 @@ func (b *layeredBucket) set(primary, secondary string, value interface{}, durati
 	return item, new, d
 }
 
-func (b *layeredBucket) replace(primary, secondary string, value interface{}) bool {
+func (b *layeredBucket) replace(primary, secondary string, value interface{}) (bool, int64) {
 	b.Lock()
 	bucket, exists := b.buckets[primary]
 	b.Unlock()
 	if exists == false {
-		return false
+		return false, 0
 	}
 	return bucket.replace(secondary, value)
 }

@@ -82,7 +82,11 @@ func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL nor does it alter its position in the LRU
 func (c *Cache) Replace(key string, value interface{}) bool {
-	return c.bucket(key).replace(key, value)
+	exists, d := c.bucket(key).replace(key, value)
+	if d != 0 {
+		atomic.AddInt64(&c.size, d)
+	}
+	return exists
 }
 
 // Attempts to get the value from the cache and calles fetch on a miss.

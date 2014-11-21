@@ -171,3 +171,27 @@ func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
 	time.Sleep(time.Millisecond * 10)
 	Expect(cache.size).To.Equal(int64(5))
 }
+
+func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
+	cache := Layered(Configure())
+	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
+	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
+	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
+	cache.Replace("sec", "3", &SizedItem{1, 2})
+	Expect(cache.size).To.Equal(int64(6))
+}
+
+func (_ LayeredCacheTests) ReplaceChangesSize() {
+	cache := Layered(Configure())
+	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
+	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
+
+	cache.Replace("pri", "2", &SizedItem{1, 2})
+	Expect(cache.size).To.Equal(int64(4))
+
+	cache.Replace("pri", "2", &SizedItem{1, 1})
+	Expect(cache.size).To.Equal(int64(3))
+
+	cache.Replace("pri", "2", &SizedItem{1, 3})
+	Expect(cache.size).To.Equal(int64(5))
+}

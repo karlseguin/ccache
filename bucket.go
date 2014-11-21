@@ -22,13 +22,12 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	b.Lock()
 	defer b.Unlock()
 	if existing, exists := b.lookup[key]; exists {
-		s := existing.size
 		existing.value = value
 		existing.expires = expires
 		d := int64(0)
 		if sized, ok := value.(Sized); ok {
 			newSize := sized.Size()
-			d = newSize - s
+			d = newSize - existing.size
 			if d != 0 {
 				atomic.StoreInt64(&existing.size, newSize)
 			}
@@ -40,15 +39,23 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	return item, true, int64(item.size)
 }
 
-func (b *bucket) replace(key string, value interface{}) bool {
+func (b *bucket) replace(key string, value interface{}) (bool, int64) {
 	b.Lock()
 	defer b.Unlock()
 	existing, exists := b.lookup[key]
 	if exists == false {
-		return false
+		return false, 0
+	}
+	d := int64(0)
+	if sized, ok := value.(Sized); ok {
+		newSize := sized.Size()
+		d = newSize - existing.size
+		if d != 0 {
+			atomic.StoreInt64(&existing.size, newSize)
+		}
 	}
 	existing.value = value
-	return true
+	return true, d
 }
 
 func (b *bucket) delete(key string) *Item {

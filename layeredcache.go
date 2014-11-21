@@ -93,7 +93,11 @@ func (c *LayeredCache) Set(primary, secondary string, value interface{}, duratio
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL nor does it alter its position in the LRU
 func (c *LayeredCache) Replace(primary, secondary string, value interface{}) bool {
-	return c.bucket(primary).replace(primary, secondary, value)
+	exists, d := c.bucket(primary).replace(primary, secondary, value)
+	if d != 0 {
+		atomic.AddInt64(&c.size, d)
+	}
+	return exists
 }
 
 // Attempts to get the value from the cache and calles fetch on a miss.

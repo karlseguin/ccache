@@ -102,6 +102,30 @@ func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	Expect(cache.size).To.Equal(int64(2))
 }
 
+func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
+	cache := New(Configure())
+	cache.Set("1", &SizedItem{1, 2}, time.Minute)
+	cache.Set("2", &SizedItem{1, 2}, time.Minute)
+	cache.Set("3", &SizedItem{1, 2}, time.Minute)
+	cache.Replace("4", &SizedItem{1, 2})
+	Expect(cache.size).To.Equal(int64(6))
+}
+
+func (_ CacheTests) ReplaceChangesSize() {
+	cache := New(Configure())
+	cache.Set("1", &SizedItem{1, 2}, time.Minute)
+	cache.Set("2", &SizedItem{1, 2}, time.Minute)
+
+	cache.Replace("2", &SizedItem{1, 2})
+	Expect(cache.size).To.Equal(int64(4))
+
+	cache.Replace("2", &SizedItem{1, 1})
+	Expect(cache.size).To.Equal(int64(3))
+
+	cache.Replace("2", &SizedItem{1, 3})
+	Expect(cache.size).To.Equal(int64(5))
+}
+
 type SizedItem struct {
 	id int
 	s  int64
