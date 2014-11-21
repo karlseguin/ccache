@@ -73,3 +73,40 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2").Value()).To.Equal(2)
 }
+
+func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
+	cache := New(Configure().MaxItems(9).ItemsToPrune(2))
+	for i := 0; i < 7; i++ {
+		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
+	}
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.Get("0")).To.Equal(nil)
+	Expect(cache.Get("1")).To.Equal(nil)
+	Expect(cache.Get("2")).To.Equal(nil)
+	Expect(cache.Get("3").Value().(*SizedItem).id).To.Equal(3)
+}
+
+func (_ CacheTests) SetUpdatesSizeOnDelta() {
+	cache := New(Configure())
+	cache.Set("a", &SizedItem{0, 2}, time.Minute)
+	cache.Set("b", &SizedItem{0, 3}, time.Minute)
+	Expect(cache.size).To.Equal(int64(5))
+	cache.Set("b", &SizedItem{0, 3}, time.Minute)
+	Expect(cache.size).To.Equal(int64(5))
+	cache.Set("b", &SizedItem{0, 4}, time.Minute)
+	Expect(cache.size).To.Equal(int64(6))
+	cache.Set("b", &SizedItem{0, 2}, time.Minute)
+	Expect(cache.size).To.Equal(int64(4))
+	cache.Delete("b")
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.size).To.Equal(int64(2))
+}
+
+type SizedItem struct {
+	id int
+	s  int64
+}
+
+func (s *SizedItem) Size() int64 {
+	return s.s
+}

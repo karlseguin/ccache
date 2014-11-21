@@ -77,7 +77,7 @@ func (_ *LayeredCacheTests) DeletesALayer() {
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 }
 
-func (c *LayeredCacheTests) GCsTheOldestItems() {
+func (_ LayeredCacheTests) GCsTheOldestItems() {
 	cache := Layered(Configure().ItemsToPrune(10))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 500; i++ {
@@ -94,7 +94,7 @@ func (c *LayeredCacheTests) GCsTheOldestItems() {
 	Expect(cache.Get("10", "a").Value()).To.Equal(10)
 }
 
-func (c *LayeredCacheTests) PromotedItemsDontGetPruned() {
+func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
 	cache := Layered(Configure().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -108,7 +108,7 @@ func (c *LayeredCacheTests) PromotedItemsDontGetPruned() {
 	Expect(cache.Get("11", "a").Value()).To.Equal(11)
 }
 
-func (c *LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
+func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := Layered(Configure().ItemsToPrune(10).Track())
 	for i := 0; i < 10; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -123,7 +123,7 @@ func (c *LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	Expect(cache.Get("0", "a")).To.Equal(nil)
 }
 
-func (c *LayeredCacheTests) RemovesOldestItemWhenFull() {
+func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
 	cache := Layered(Configure().MaxItems(5).ItemsToPrune(1))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
@@ -141,4 +141,33 @@ func (c *LayeredCacheTests) RemovesOldestItemWhenFull() {
 
 func newLayered() *LayeredCache {
 	return Layered(Configure())
+}
+
+func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
+	cache := Layered(Configure().MaxItems(9).ItemsToPrune(2))
+	for i := 0; i < 7; i++ {
+		cache.Set("pri", strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
+	}
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.Get("pri", "0")).To.Equal(nil)
+	Expect(cache.Get("pri", "1")).To.Equal(nil)
+	Expect(cache.Get("pri", "2")).To.Equal(nil)
+	Expect(cache.Get("pri", "3").Value().(*SizedItem).id).To.Equal(3)
+}
+
+func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
+	cache := Layered(Configure())
+	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
+	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
+	Expect(cache.size).To.Equal(int64(5))
+	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
+	Expect(cache.size).To.Equal(int64(5))
+	cache.Set("pri", "b", &SizedItem{0, 4}, time.Minute)
+	Expect(cache.size).To.Equal(int64(6))
+	cache.Set("pri", "b", &SizedItem{0, 2}, time.Minute)
+	cache.Set("sec", "b", &SizedItem{0, 3}, time.Minute)
+	Expect(cache.size).To.Equal(int64(7))
+	cache.Delete("pri", "b")
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.size).To.Equal(int64(5))
 }

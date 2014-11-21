@@ -149,10 +149,10 @@ func (c *Cache) worker() {
 				c.gc()
 			}
 		case item := <-c.deletables:
+			atomic.AddInt64(&c.size, -item.size)
 			if item.element == nil {
 				item.promotions = -2
 			} else {
-				atomic.AddInt64(&c.size,  -item.size)
 				c.list.Remove(item.element)
 			}
 		}
