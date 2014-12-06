@@ -146,7 +146,11 @@ cache.Delete("/users/goku", "type:xml")
 // OR
 cache.DeleteAll("/users/goku")
 ```
+
 ## Size
 By default, items added to a cache have a size of 1. This means that if you configure `MaxSize(10000)`, you'll be able to store 10000 items in the cache.
 
 However, if the values you set into the cache have a method `Size() int64`, this size will be used. Note that ccache has an overhead of ~350 bytes per entry, which isn't taken into account. In other words, given a filled up cache, with `MaxSize(4096000)` and items that return a `Size() int64` of 2048, we can expect to find 2000 items (4096000/2048) taking a total space of 4796000 bytes.
+
+## Want Something Simpler?
+For a simpler cache, checkout out [rcache](https://github.com/karlseguin/rcache)
