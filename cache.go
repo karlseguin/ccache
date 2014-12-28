@@ -155,7 +155,7 @@ func (c *Cache) worker() {
 		case item := <-c.deletables:
 			atomic.AddInt64(&c.size, -item.size)
 			if item.element == nil {
-				item.promotions = -2
+				atomic.StoreInt32(&item.promotions, -2)
 			} else {
 				c.list.Remove(item.element)
 			}
@@ -165,10 +165,10 @@ func (c *Cache) worker() {
 
 func (c *Cache) doPromote(item *Item) bool {
 	//already deleted
-	if item.promotions == -2 {
+	if atomic.LoadInt32(&item.promotions) == -2 {
 		return false
 	}
-	item.promotions = 0
+	atomic.StoreInt32(&item.promotions, 0)
 	if item.element != nil { //not a new item
 		c.list.MoveToFront(item.element)
 		return false
