@@ -43,13 +43,12 @@ func New(config *Configuration) *Cache {
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
 func (c *Cache) Get(key string) *Item {
-	bucket := c.bucket(key)
-	item := bucket.get(key)
+	item := c.bucket(key).get(key)
 	if item == nil {
 		return nil
 	}
 	if item.expires > time.Now().Unix() {
-		c.conditionalPromote(item)
+		c.promote(item)
 	}
 	return item
 }
@@ -67,26 +66,23 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	item, new, d := c.bucket(key).set(key, value, duration)
-	if new {
-		c.promote(item)
-	} else {
-		c.conditionalPromote(item)
+	item, existing := c.bucket(key).set(key, value, duration)
+	if existing != nil {
+		c.deletables <- existing
 	}
-	if d != 0 {
-		atomic.AddInt64(&c.size, d)
-	}
+	c.promote(item)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
-// Replace does not reset item's TTL nor does it alter its position in the LRU
+// Replace does not reset item's TTL
 func (c *Cache) Replace(key string, value interface{}) bool {
-	exists, d := c.bucket(key).replace(key, value)
-	if d != 0 {
-		atomic.AddInt64(&c.size, d)
+	item := c.bucket(key).get(key)
+	if item == nil {
+		return false
 	}
-	return exists
+	c.Set(key, value, item.TTL())
+	return true
 }
 
 // Attempts to get the value from the cache and calles fetch on a miss.
@@ -134,13 +130,6 @@ func (c *Cache) bucket(key string) *bucket {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *Cache) conditionalPromote(item *Item) {
-	if item.shouldPromote(c.getsPerPromote) == false {
-		return
-	}
-	c.promote(item)
-}
-
 func (c *Cache) promote(item *Item) {
 	c.promotables <- item
 }
@@ -149,14 +138,14 @@ func (c *Cache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxSize {
+			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			atomic.AddInt64(&c.size, -item.size)
 			if item.element == nil {
-				atomic.StoreInt32(&item.promotions, -2)
+				item.promotions = -2
 			} else {
+				c.size -= item.size
 				c.list.Remove(item.element)
 			}
 		}
@@ -165,14 +154,18 @@ func (c *Cache) worker() {
 
 func (c *Cache) doPromote(item *Item) bool {
 	//already deleted
-	if atomic.LoadInt32(&item.promotions) == -2 {
+	if item.promotions == -2 {
 		return false
 	}
-	atomic.StoreInt32(&item.promotions, 0)
 	if item.element != nil { //not a new item
-		c.list.MoveToFront(item.element)
+		if item.shouldPromote(c.getsPerPromote) {
+			c.list.MoveToFront(item.element)
+			item.promotions = 0
+		}
 		return false
 	}
+
+	c.size += item.size
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -187,8 +180,9 @@ func (c *Cache) gc() {
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
-			atomic.AddInt64(&c.size, -item.size)
+			c.size -= item.size
 			c.list.Remove(element)
+			item.promotions = -2
 		}
 		element = prev
 	}

@@ -32,37 +32,20 @@ func (_ *BucketTests) DeleteItemFromBucket() {
 
 func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
-	item, new, d := bucket.set("spice", TestValue("flow"), time.Minute)
+	item, existing := bucket.set("spice", TestValue("flow"), time.Minute)
 	assertValue(item, "flow")
 	item = bucket.get("spice")
 	assertValue(item, "flow")
-	Expect(new).To.Equal(true)
-	Expect(d).To.Equal(1)
+	Expect(existing).To.Equal(nil)
 }
 
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
-	item, new, d := bucket.set("power", TestValue("9002"), time.Minute)
+	item, existing := bucket.set("power", TestValue("9001"), time.Minute)
 	assertValue(item, "9002")
 	item = bucket.get("power")
 	assertValue(item, "9002")
-	Expect(new).To.Equal(false)
-	Expect(d).To.Equal(0)
-}
-
-func (_ *BucketTests) ReplaceDoesNothingIfKeyDoesNotExist() {
-	bucket := testBucket()
-	Expect(bucket.replace("power", TestValue("9002"))).To.Equal(false)
-	Expect(bucket.get("power")).To.Equal(nil)
-}
-
-func (_ *BucketTests) ReplaceReplacesThevalue() {
-	bucket := testBucket()
-	item, _, _ := bucket.set("power", TestValue("9002"), time.Minute)
-	Expect(bucket.replace("power", TestValue("9004"))).To.Equal(true)
-	Expect(item.Value().(string)).To.Equal("9004")
-	Expect(bucket.get("power").Value().(string)).To.Equal("9004")
-	//not sure how to test that the TTL hasn't changed sort of a sleep..
+	assertValue(existing, "9001")
 }
 
 func testBucket() *bucket {

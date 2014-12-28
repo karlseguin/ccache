@@ -83,22 +83,27 @@ func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2")).To.Equal(nil)
-	Expect(cache.Get("3").Value().(*SizedItem).id).To.Equal(3)
+	Expect(cache.Get("3")).To.Equal(nil)
+	Expect(cache.Get("4").Value().(*SizedItem).id).To.Equal(4)
 }
 
 func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	cache := New(Configure())
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 	cache.Set("b", &SizedItem{0, 4}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(6))
 	cache.Set("b", &SizedItem{0, 2}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(4))
 	cache.Delete("b")
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 100)
 	Expect(cache.size).To.Equal(int64(2))
 }
 
@@ -108,6 +113,7 @@ func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("4", &SizedItem{1, 2})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(6))
 }
 
@@ -117,12 +123,15 @@ func (_ CacheTests) ReplaceChangesSize() {
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 
 	cache.Replace("2", &SizedItem{1, 2})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(4))
 
 	cache.Replace("2", &SizedItem{1, 1})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(3))
 
 	cache.Replace("2", &SizedItem{1, 3})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 }
 

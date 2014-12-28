@@ -60,14 +60,15 @@ func newItem(key string, value interface{}, expires int64) *Item {
 	return &Item{
 		key:        key,
 		value:      value,
-		promotions: -1,
+		promotions: 0,
 		size:       size,
 		expires:    expires,
 	}
 }
 
 func (i *Item) shouldPromote(getsPerPromote int32) bool {
-	return atomic.AddInt32(&i.promotions, 1) == getsPerPromote
+	i.promotions += 1
+	return i.promotions == getsPerPromote
 }
 
 func (i *Item) Value() interface{} {

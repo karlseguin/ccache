@@ -54,13 +54,12 @@ func Layered(config *Configuration) *LayeredCache {
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
 func (c *LayeredCache) Get(primary, secondary string) *Item {
-	bucket := c.bucket(primary)
-	item := bucket.get(primary, secondary)
+	item := c.bucket(primary).get(primary, secondary)
 	if item == nil {
 		return nil
 	}
 	if item.expires > time.Now().Unix() {
-		c.conditionalPromote(item)
+		c.promote(item)
 	}
 	return item
 }
@@ -78,26 +77,23 @@ func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
-	item, new, d := c.bucket(primary).set(primary, secondary, value, duration)
-	if new {
-		c.promote(item)
-	} else {
-		c.conditionalPromote(item)
+	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
+	if existing != nil {
+		c.deletables <- existing
 	}
-	if d != 0 {
-		atomic.AddInt64(&c.size, d)
-	}
+	c.promote(item)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL nor does it alter its position in the LRU
 func (c *LayeredCache) Replace(primary, secondary string, value interface{}) bool {
-	exists, d := c.bucket(primary).replace(primary, secondary, value)
-	if d != 0 {
-		atomic.AddInt64(&c.size, d)
+	item := c.bucket(primary).get(primary, secondary)
+	if item == nil {
+		return false
 	}
-	return exists
+	c.Set(primary, secondary, value, item.TTL())
+	return true
 }
 
 // Attempts to get the value from the cache and calles fetch on a miss.
@@ -145,13 +141,6 @@ func (c *LayeredCache) bucket(key string) *layeredBucket {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *LayeredCache) conditionalPromote(item *Item) {
-	if item.shouldPromote(c.getsPerPromote) == false {
-		return
-	}
-	c.promote(item)
-}
-
 func (c *LayeredCache) promote(item *Item) {
 	c.promotables <- item
 }
@@ -160,14 +149,14 @@ func (c *LayeredCache) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
-			if c.doPromote(item) && atomic.LoadInt64(&c.size) > c.maxSize {
+			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			atomic.AddInt64(&c.size, -item.size)
 			if item.element == nil {
 				item.promotions = -2
 			} else {
+				c.size -= item.size
 				c.list.Remove(item.element)
 			}
 		}
@@ -179,12 +168,14 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 	if item.promotions == -2 {
 		return false
 	}
-
-	item.promotions = 0
 	if item.element != nil { //not a new item
-		c.list.MoveToFront(item.element)
+		if item.shouldPromote(c.getsPerPromote) {
+			c.list.MoveToFront(item.element)
+			item.promotions = 0
+		}
 		return false
 	}
+	c.size += item.size
 	item.element = c.list.PushFront(item)
 	return true
 }
@@ -198,9 +189,10 @@ func (c *LayeredCache) gc() {
 		prev := element.Prev()
 		item := element.Value.(*Item)
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
-			atomic.AddInt64(&c.size, -item.size)
 			c.bucket(item.group).delete(item.group, item.key)
+			c.size -= item.size
 			c.list.Remove(element)
+			item.promotions = -2
 		}
 		element = prev
 	}

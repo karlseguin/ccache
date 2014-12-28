@@ -152,20 +152,25 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
 	Expect(cache.Get("pri", "0")).To.Equal(nil)
 	Expect(cache.Get("pri", "1")).To.Equal(nil)
 	Expect(cache.Get("pri", "2")).To.Equal(nil)
-	Expect(cache.Get("pri", "3").Value().(*SizedItem).id).To.Equal(3)
+	Expect(cache.Get("pri", "3")).To.Equal(nil)
+	Expect(cache.Get("pri", "4").Value().(*SizedItem).id).To.Equal(4)
 }
 
 func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
 	cache := Layered(Configure())
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 	cache.Set("pri", "b", &SizedItem{0, 4}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(6))
 	cache.Set("pri", "b", &SizedItem{0, 2}, time.Minute)
 	cache.Set("sec", "b", &SizedItem{0, 3}, time.Minute)
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(7))
 	cache.Delete("pri", "b")
 	time.Sleep(time.Millisecond * 10)
@@ -178,6 +183,7 @@ func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("sec", "3", &SizedItem{1, 2})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(6))
 }
 
@@ -187,11 +193,14 @@ func (_ LayeredCacheTests) ReplaceChangesSize() {
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 
 	cache.Replace("pri", "2", &SizedItem{1, 2})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(4))
 
 	cache.Replace("pri", "2", &SizedItem{1, 1})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(3))
 
 	cache.Replace("pri", "2", &SizedItem{1, 3})
+	time.Sleep(time.Millisecond * 5)
 	Expect(cache.size).To.Equal(int64(5))
 }
