@@ -66,11 +66,7 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	item, existing := c.bucket(key).set(key, value, duration)
-	if existing != nil {
-		c.deletables <- existing
-	}
-	c.promote(item)
+	c.set(key, value, duration)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -94,10 +90,10 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 		return item, nil
 	}
 	value, err := fetch()
-	if err == nil {
-		c.Set(key, value, duration)
+	if err != nil {
+		return nil, err
 	}
-	return value, err
+	return c.set(key, value, duration), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -122,6 +118,15 @@ func (c *Cache) Clear() {
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	bucket.delete(item.key) //stop other GETs from getting it
 	c.deletables <- item
+}
+
+func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
+	item, existing := c.bucket(key).set(key, value, duration)
+	if existing != nil {
+		c.deletables <- existing
+	}
+	c.promote(item)
+	return item
 }
 
 func (c *Cache) bucket(key string) *bucket {

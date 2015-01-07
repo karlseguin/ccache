@@ -77,11 +77,7 @@ func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
 
 // Set the value in the cache for the specified duration
 func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
-	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
-	if existing != nil {
-		c.deletables <- existing
-	}
-	c.promote(item)
+	c.set(primary, secondary, value, duration)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -105,10 +101,10 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 		return item, nil
 	}
 	value, err := fetch()
-	if err == nil {
-		c.Set(primary, secondary, value, duration)
+	if err != nil {
+		return nil, err
 	}
-	return value, err
+	return c.set(primary, secondary, value, duration), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -133,6 +129,15 @@ func (c *LayeredCache) Clear() {
 	}
 	c.size = 0
 	c.list = list.New()
+}
+
+func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration) *Item {
+	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
+	if existing != nil {
+		c.deletables <- existing
+	}
+	c.promote(item)
+	return item
 }
 
 func (c *LayeredCache) bucket(key string) *layeredBucket {
