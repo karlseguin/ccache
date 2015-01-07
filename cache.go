@@ -84,7 +84,7 @@ func (c *Cache) Replace(key string, value interface{}) bool {
 // Attempts to get the value from the cache and calles fetch on a miss.
 // If fetch returns an error, no value is cached and the error is returned back
 // to the caller.
-func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
+func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
 	item := c.Get(key)
 	if item != nil {
 		return item, nil
