@@ -101,6 +101,10 @@ cache.Replace("user:4", user)
 
 `Replace` returns true if the item existed (and thus was replaced). In the case where the key was not in the cache, the value *is not* inserted and false is returned.
 
+### Stop
+The cache's background worker can be stopped by calling `Stop`. Once `Stop` is called
+the cache should not be used (calls are likely to panic). Stop must be called in order to allow the garbage collector to reap the cache.
+
 ## Tracking
 CCache supports a special tracking mode which is meant to be used in conjunction with other pieces of your code that maintains a long-lived reference to data.
 

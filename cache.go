@@ -115,6 +115,12 @@ func (c *Cache) Clear() {
 	c.list = list.New()
 }
 
+// Stops the background worker. Operations performed on the cache after Stop
+// is called are likely to panic
+func (c *Cache) Stop() {
+	close(c.promotables)
+}
+
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	bucket.delete(item.key) //stop other GETs from getting it
 	c.deletables <- item
@@ -142,7 +148,10 @@ func (c *Cache) promote(item *Item) {
 func (c *Cache) worker() {
 	for {
 		select {
-		case item := <-c.promotables:
+		case item, ok := <-c.promotables:
+			if ok == false {
+				return
+			}
 			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
