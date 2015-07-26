@@ -150,19 +150,34 @@ func (c *Cache) worker() {
 		select {
 		case item, ok := <-c.promotables:
 			if ok == false {
-				return
+				goto drain
 			}
 			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
 		case item := <-c.deletables:
-			if item.element == nil {
-				item.promotions = -2
-			} else {
-				c.size -= item.size
-				c.list.Remove(item.element)
-			}
+			c.doDelete(item)
 		}
+	}
+
+drain:
+	for {
+		select {
+		case item := <-c.deletables:
+			c.doDelete(item)
+		default:
+			close(c.deletables)
+			return
+		}
+	}
+}
+
+func (c *Cache) doDelete(item *Item) {
+	if item.element == nil {
+		item.promotions = -2
+	} else {
+		c.size -= item.size
+		c.list.Remove(item.element)
 	}
 }
 
