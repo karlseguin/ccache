@@ -27,16 +27,11 @@ func (_ CacheTests) FetchesExpiredItems() {
 	cache := New(Configure())
 	fn := func() (interface{}, error) { return "moo-moo", nil }
 
-	cache.Set("beef", "moo", time.Second)
+	cache.Set("beef", "moo", time.Second*-1)
 	Expect(cache.Get("beef").Value()).To.Equal("moo")
 
 	out, _ := cache.Fetch("beef", time.Second, fn)
-	Expect(out.Value()).To.Equal("moo")
-
-	time.Sleep(2 * time.Second)
-
-	out2, _ := cache.Fetch("beef", time.Second, fn)
-	Expect(out2.Value()).To.Equal("moo-moo")
+	Expect(out.Value()).To.Equal("moo-moo")
 }
 
 func (_ CacheTests) GCsTheOldestItems() {
