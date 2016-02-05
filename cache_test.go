@@ -1,10 +1,11 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
 	"strconv"
 	"testing"
 	"time"
+
+	. "github.com/karlseguin/expect"
 )
 
 type CacheTests struct{}
@@ -20,6 +21,17 @@ func (_ CacheTests) DeletesAValue() {
 	cache.Delete("spice")
 	Expect(cache.Get("spice")).To.Equal(nil)
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
+}
+
+func (_ CacheTests) FetchesExpiredItems() {
+	cache := New(Configure())
+	fn := func() (interface{}, error) { return "moo-moo", nil }
+
+	cache.Set("beef", "moo", time.Second*-1)
+	Expect(cache.Get("beef").Value()).To.Equal("moo")
+
+	out, _ := cache.Fetch("beef", time.Second, fn)
+	Expect(out.Value()).To.Equal("moo-moo")
 }
 
 func (_ CacheTests) GCsTheOldestItems() {
