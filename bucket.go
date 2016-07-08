@@ -17,7 +17,7 @@ func (b *bucket) get(key string) *Item {
 }
 
 func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, *Item) {
-	expires := time.Now().Add(duration).Unix()
+	expires := time.Now().Add(duration).UnixNano()
 	item := newItem(key, value, expires)
 	b.Lock()
 	defer b.Unlock()

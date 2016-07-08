@@ -1,9 +1,11 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
+	"math"
 	"testing"
 	"time"
+
+	. "github.com/karlseguin/expect"
 )
 
 type ItemTests struct{}
@@ -19,29 +21,29 @@ func (_ *ItemTests) Promotability() {
 }
 
 func (_ *ItemTests) Expired() {
-	now := time.Now().Unix()
-	item1 := &Item{expires: now + 1}
-	item2 := &Item{expires: now - 1}
+	now := time.Now().UnixNano()
+	item1 := &Item{expires: now + (10 * int64(time.Millisecond))}
+	item2 := &Item{expires: now - (10 * int64(time.Millisecond))}
 	Expect(item1.Expired()).To.Equal(false)
 	Expect(item2.Expired()).To.Equal(true)
 }
 
 func (_ *ItemTests) TTL() {
-	now := time.Now().Unix()
-	item1 := &Item{expires: now + 10}
-	item2 := &Item{expires: now - 10}
-	Expect(item1.TTL()).To.Equal(time.Second * 10)
-	Expect(item2.TTL()).To.Equal(time.Second * -10)
+	now := time.Now().UnixNano()
+	item1 := &Item{expires: now + int64(time.Second)}
+	item2 := &Item{expires: now - int64(time.Second)}
+	Expect(int(math.Ceil(item1.TTL().Seconds()))).To.Equal(1)
+	Expect(int(math.Ceil(item2.TTL().Seconds()))).To.Equal(-1)
 }
 
 func (_ *ItemTests) Expires() {
-	now := time.Now().Unix()
-	item := &Item{expires: now + 10}
-	Expect(item.Expires().Unix()).To.Equal(now + 10)
+	now := time.Now().UnixNano()
+	item := &Item{expires: now + (10)}
+	Expect(item.Expires().UnixNano()).To.Equal(now + 10)
 }
 
 func (_ *ItemTests) Extend() {
-	item := &Item{expires: time.Now().Unix() + 10}
+	item := &Item{expires: time.Now().UnixNano() + 10}
 	item.Extend(time.Minute * 2)
 	Expect(item.Expires().Unix()).To.Equal(time.Now().Unix() + 120)
 }

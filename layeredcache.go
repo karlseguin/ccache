@@ -58,7 +58,7 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	if item == nil {
 		return nil
 	}
-	if item.expires > time.Now().Unix() {
+	if item.expires > time.Now().UnixNano() {
 		c.promote(item)
 	}
 	return item

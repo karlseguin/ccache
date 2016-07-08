@@ -85,19 +85,19 @@ func (i *Item) Release() {
 
 func (i *Item) Expired() bool {
 	expires := atomic.LoadInt64(&i.expires)
-	return expires < time.Now().Unix()
+	return expires < time.Now().UnixNano()
 }
 
 func (i *Item) TTL() time.Duration {
 	expires := atomic.LoadInt64(&i.expires)
-	return time.Second * time.Duration(expires-time.Now().Unix())
+	return time.Nanosecond * time.Duration(expires-time.Now().UnixNano())
 }
 
 func (i *Item) Expires() time.Time {
 	expires := atomic.LoadInt64(&i.expires)
-	return time.Unix(expires, 0)
+	return time.Unix(0, expires)
 }
 
 func (i *Item) Extend(duration time.Duration) {
-	atomic.StoreInt64(&i.expires, time.Now().Add(duration).Unix())
+	atomic.StoreInt64(&i.expires, time.Now().Add(duration).UnixNano())
 }
