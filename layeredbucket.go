@@ -11,13 +11,21 @@ type layeredBucket struct {
 }
 
 func (b *layeredBucket) get(primary, secondary string) *Item {
+	bucket := b.getSecondaryBucket(primary)
+	if bucket == nil {
+		return nil
+	}
+	return bucket.get(secondary)
+}
+
+func (b *layeredBucket) getSecondaryBucket(primary string) *bucket {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
 	if exists == false {
 		return nil
 	}
-	return bucket.get(secondary)
+	return bucket
 }
 
 func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, *Item) {

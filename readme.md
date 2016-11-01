@@ -151,6 +151,18 @@ cache.Delete("/users/goku", "type:xml")
 cache.DeleteAll("/users/goku")
 ```
 
+# SecondaryCache
+
+In some cases, when using a `LayeredCache`, it may be desirable to always be acting on the secondary portion of the cache entry. This could be the case where the primary key is used as a key elsewhere in your code. The `SecondaryCache` is retrieved with:
+
+```go
+cache := ccache.Layered(ccache.Configure())
+sCache := cache.GetOrCreateSecondaryCache("/users/goku")
+sCache.Set("type:json", "{value_to_cache}", time.Minute * 5)
+```
+
+The semantics for interacting with the `SecondaryCache` are exactly the same as for a regular `Cache`. However, one difference is that `Get` will not return nil, but will return an empty 'cache' for a non-existent primary key.
+
 ## Size
 By default, items added to a cache have a size of 1. This means that if you configure `MaxSize(10000)`, you'll be able to store 10000 items in the cache.
 
