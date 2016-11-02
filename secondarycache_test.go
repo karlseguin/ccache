@@ -78,14 +78,14 @@ func (_ SecondaryCacheTests) FetchReturnsAnExistingValue() {
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	sCache := cache.GetOrCreateSecondaryCache("spice")
 	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) {return "a fetched value", nil})
-	Expect(val.(*Item).Value().(string)).To.Equal("value-a")
+	Expect(val.Value().(string)).To.Equal("value-a")
 }
 
 func (_ SecondaryCacheTests) FetchReturnsANewValue() {
 	cache := newLayered()
 	sCache := cache.GetOrCreateSecondaryCache("spice")
 	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) {return "a fetched value", nil})
-	Expect(val.(*Item).Value().(string)).To.Equal("a fetched value")
+	Expect(val.Value().(string)).To.Equal("a fetched value")
 }
 
 func (_ SecondaryCacheTests) TrackerDoesNotCleanupHeldInstance() {

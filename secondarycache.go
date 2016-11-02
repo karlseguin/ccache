@@ -26,7 +26,7 @@ func (s *SecondaryCache) Set(secondary string, value interface{}, duration time.
 
 // Fetch or set a secondary key.
 // The semantics are the same as for LayeredCache.Fetch
-func (s *SecondaryCache) Fetch(secondary string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
+func (s *SecondaryCache) Fetch(secondary string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
 	item := s.Get(secondary)
 	if item != nil {
 		return item, nil

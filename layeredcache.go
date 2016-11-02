@@ -70,10 +70,12 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache {
 	primaryBkt := c.bucket(primary)
 	bkt := primaryBkt.getSecondaryBucket(primary)
+	primaryBkt.Lock()
 	if bkt == nil {
 		bkt = &bucket{lookup: make(map[string]*Item)}
 		primaryBkt.buckets[primary] = bkt
 	}
+	primaryBkt.Unlock()
 	return &SecondaryCache{
 		bucket: bkt,
 		pCache: c,
