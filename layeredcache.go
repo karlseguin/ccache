@@ -95,7 +95,7 @@ func (c *LayeredCache) Replace(primary, secondary string, value interface{}) boo
 // Attempts to get the value from the cache and calles fetch on a miss.
 // If fetch returns an error, no value is cached and the error is returned back
 // to the caller.
-func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (interface{}, error) {
+func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
 	item := c.Get(primary, secondary)
 	if item != nil {
 		return item, nil
