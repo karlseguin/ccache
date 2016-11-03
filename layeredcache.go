@@ -64,6 +64,24 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
+// Get the secondary cache for a given primary key. This operation will
+// never return nil. In the case where the primary key does not exist, a
+// new, underlying, empty bucket will be created and returned.
+func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache {
+	primaryBkt := c.bucket(primary)
+	bkt := primaryBkt.getSecondaryBucket(primary)
+	primaryBkt.Lock()
+	if bkt == nil {
+		bkt = &bucket{lookup: make(map[string]*Item)}
+		primaryBkt.buckets[primary] = bkt
+	}
+	primaryBkt.Unlock()
+	return &SecondaryCache{
+		bucket: bkt,
+		pCache: c,
+	}
+}
+
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
 func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
