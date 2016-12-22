@@ -28,7 +28,7 @@ var cache = ccache.New(ccache.Configure())
 `Configure` exposes a chainable API:
 
 ```go
-var cache = ccache.New(ccache.Configure().MaxSize(1000).itemsToPrune(100))
+var cache = ccache.New(ccache.Configure().MaxSize(1000).ItemsToPrune(100))
 ```
 
 The most likely configuration options to tweak are:
