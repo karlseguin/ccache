@@ -16,6 +16,7 @@ type LayeredCache struct {
 	size        int64
 	deletables  chan *Item
 	promotables chan *Item
+	donec       chan struct{}
 }
 
 // Create a new layered cache with the specified configuration.
@@ -38,14 +39,13 @@ func Layered(config *Configuration) *LayeredCache {
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
-		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
 			buckets: make(map[string]*bucket),
 		}
 	}
-	go c.worker()
+	c.restart()
 	return c
 }
 
@@ -149,6 +149,17 @@ func (c *LayeredCache) Clear() {
 	c.list = list.New()
 }
 
+func (c *LayeredCache) Stop() {
+	close(c.promotables)
+	<-c.donec
+}
+
+func (c *LayeredCache) restart() {
+	c.promotables = make(chan *Item, c.promoteBuffer)
+	c.donec = make(chan struct{})
+	go c.worker()
+}
+
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
 	if existing != nil {
@@ -169,9 +180,13 @@ func (c *LayeredCache) promote(item *Item) {
 }
 
 func (c *LayeredCache) worker() {
+	defer close(c.donec)
 	for {
 		select {
-		case item := <-c.promotables:
+		case item, ok := <-c.promotables:
+			if ok == false {
+				return
+			}
 			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
