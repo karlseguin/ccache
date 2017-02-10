@@ -41,7 +41,7 @@ func (_ CacheTests) GCsTheOldestItems() {
 	}
 	//let the items get promoted (and added to our list)
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcCache(cache)
 	Expect(cache.Get("9")).To.Equal(nil)
 	Expect(cache.Get("10").Value()).To.Equal(10)
 }
@@ -54,7 +54,7 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 	time.Sleep(time.Millisecond * 10) //run the worker once to init the list
 	cache.Get("9")
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcCache(cache)
 	Expect(cache.Get("9").Value()).To.Equal(9)
 	Expect(cache.Get("10")).To.Equal(nil)
 	Expect(cache.Get("11").Value()).To.Equal(11)
@@ -67,11 +67,11 @@ func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	}
 	item := cache.TrackingGet("0")
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcCache(cache)
 	Expect(cache.Get("0").Value()).To.Equal(0)
 	Expect(cache.Get("1")).To.Equal(nil)
 	item.Release()
-	cache.gc()
+	gcCache(cache)
 	Expect(cache.Get("0")).To.Equal(nil)
 }
 
@@ -104,19 +104,19 @@ func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkSize(cache, 5)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkSize(cache, 5)
 	cache.Set("b", &SizedItem{0, 4}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(6))
+	checkSize(cache, 6)
 	cache.Set("b", &SizedItem{0, 2}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(4))
+	checkSize(cache, 4)
 	cache.Delete("b")
 	time.Sleep(time.Millisecond * 100)
-	Expect(cache.size).To.Equal(int64(2))
+	checkSize(cache, 2)
 }
 
 func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
@@ -126,7 +126,7 @@ func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("4", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(6))
+	checkSize(cache, 6)
 }
 
 func (_ CacheTests) ReplaceChangesSize() {
@@ -136,15 +136,15 @@ func (_ CacheTests) ReplaceChangesSize() {
 
 	cache.Replace("2", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(4))
+	checkSize(cache, 4)
 
 	cache.Replace("2", &SizedItem{1, 1})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(3))
+	checkSize(cache, 3)
 
 	cache.Replace("2", &SizedItem{1, 3})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkSize(cache, 5)
 }
 
 type SizedItem struct {
@@ -154,4 +154,16 @@ type SizedItem struct {
 
 func (s *SizedItem) Size() int64 {
 	return s.s
+}
+
+func checkSize(cache *Cache, sz int64) {
+	cache.Stop()
+	Expect(cache.size).To.Equal(sz)
+	cache.restart()
+}
+
+func gcCache(cache *Cache) {
+	cache.Stop()
+	cache.gc()
+	cache.restart()
 }
