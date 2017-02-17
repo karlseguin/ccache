@@ -86,7 +86,7 @@ func (_ LayeredCacheTests) GCsTheOldestItems() {
 	cache.Set("xx", "b", 9001, time.Minute)
 	//let the items get promoted (and added to our list)
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcLayeredCache(cache)
 	Expect(cache.Get("xx", "a")).To.Equal(nil)
 	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
 	Expect(cache.Get("8", "a")).To.Equal(nil)
@@ -102,7 +102,7 @@ func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
 	time.Sleep(time.Millisecond * 10) //run the worker once to init the list
 	cache.Get("9", "a")
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcLayeredCache(cache)
 	Expect(cache.Get("9", "a").Value()).To.Equal(9)
 	Expect(cache.Get("10", "a")).To.Equal(nil)
 	Expect(cache.Get("11", "a").Value()).To.Equal(11)
@@ -115,11 +115,11 @@ func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	}
 	item := cache.TrackingGet("0", "a")
 	time.Sleep(time.Millisecond * 10)
-	cache.gc()
+	gcLayeredCache(cache)
 	Expect(cache.Get("0", "a").Value()).To.Equal(0)
 	Expect(cache.Get("1", "a")).To.Equal(nil)
 	item.Release()
-	cache.gc()
+	gcLayeredCache(cache)
 	Expect(cache.Get("0", "a")).To.Equal(nil)
 }
 
@@ -161,20 +161,20 @@ func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkLayeredSize(cache, 5)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkLayeredSize(cache, 5)
 	cache.Set("pri", "b", &SizedItem{0, 4}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(6))
+	checkLayeredSize(cache, 6)
 	cache.Set("pri", "b", &SizedItem{0, 2}, time.Minute)
 	cache.Set("sec", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(7))
+	checkLayeredSize(cache, 7)
 	cache.Delete("pri", "b")
 	time.Sleep(time.Millisecond * 10)
-	Expect(cache.size).To.Equal(int64(5))
+	checkLayeredSize(cache, 5)
 }
 
 func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
@@ -184,7 +184,7 @@ func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("sec", "3", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(6))
+	checkLayeredSize(cache, 6)
 }
 
 func (_ LayeredCacheTests) ReplaceChangesSize() {
@@ -194,13 +194,25 @@ func (_ LayeredCacheTests) ReplaceChangesSize() {
 
 	cache.Replace("pri", "2", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(4))
+	checkLayeredSize(cache, 4)
 
 	cache.Replace("pri", "2", &SizedItem{1, 1})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(3))
+	checkLayeredSize(cache, 3)
 
 	cache.Replace("pri", "2", &SizedItem{1, 3})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.size).To.Equal(int64(5))
+	checkLayeredSize(cache, 5)
+}
+
+func checkLayeredSize(cache *LayeredCache, sz int64) {
+	cache.Stop()
+	Expect(cache.size).To.Equal(sz)
+	cache.restart()
+}
+
+func gcLayeredCache(cache *LayeredCache) {
+	cache.Stop()
+	cache.gc()
+	cache.restart()
 }
