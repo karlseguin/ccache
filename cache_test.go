@@ -23,6 +23,28 @@ func (_ CacheTests) DeletesAValue() {
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
 }
 
+func (_ CacheTests) OnDeleteCallbackCalled() {
+
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item) {
+		if item.key == "spice" {
+			onDeleteFnCalled = true
+		}
+	}
+
+	cache := New(Configure().OnDelete(onDeleteFn))
+	cache.Set("spice", "flow", time.Minute)
+	cache.Set("worm", "sand", time.Minute)
+
+	time.Sleep(time.Millisecond * 10) // Run once to init
+	cache.Delete("spice")
+	time.Sleep(time.Millisecond * 10) // Wait for worker to pick up deleted items
+
+	Expect(cache.Get("spice")).To.Equal(nil)
+	Expect(cache.Get("worm").Value()).To.Equal("sand")
+	Expect(onDeleteFnCalled).To.Equal(true)
+}
+
 func (_ CacheTests) FetchesExpiredItems() {
 	cache := New(Configure())
 	fn := func() (interface{}, error) { return "moo-moo", nil }
