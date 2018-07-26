@@ -52,6 +52,15 @@ func (c *Cache) Get(key string) *Item {
 	return item
 }
 
+// Sample can be used to get an item from the cache without
+// triggering any side effects such as promotion etc.
+//
+// See additional information in the Get method
+//
+func (c *Cache) Sample(key string) *Item {
+	return c.bucket(key).get(key)
+}
+
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
 func (c *Cache) TrackingGet(key string) TrackedItem {
@@ -80,7 +89,7 @@ func (c *Cache) Replace(key string, value interface{}) bool {
 	return true
 }
 
-// Attempts to get the value from the cache and calles fetch on a miss (missing
+// Attempts to get the value from the cache and calls fetch on a miss (missing
 // or stale item). If fetch returns an error, no value is cached and the error
 // is returned back to the caller.
 func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
