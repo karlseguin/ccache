@@ -1,10 +1,11 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
 	"strconv"
 	"testing"
 	"time"
+
+	. "github.com/karlseguin/expect"
 )
 
 type LayeredCacheTests struct{}
@@ -63,6 +64,33 @@ func (_ *LayeredCacheTests) DeletesAValue() {
 	Expect(cache.Get("spice", "must").Value()).To.Equal("value-b")
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
+}
+
+func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
+
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item) {
+
+		if item.group == "spice" && item.key == "flow" {
+			onDeleteFnCalled = true
+		}
+	}
+
+	cache := Layered(Configure().OnDelete(onDeleteFn))
+	cache.Set("spice", "flow", "value-a", time.Minute)
+	cache.Set("spice", "must", "value-b", time.Minute)
+	cache.Set("leto", "sister", "ghanima", time.Minute)
+
+	time.Sleep(time.Millisecond * 10) // Run once to init
+	cache.Delete("spice", "flow")
+	time.Sleep(time.Millisecond * 10) // Wait for worker to pick up deleted items
+
+	Expect(cache.Get("spice", "flow")).To.Equal(nil)
+	Expect(cache.Get("spice", "must").Value()).To.Equal("value-b")
+	Expect(cache.Get("spice", "worm")).To.Equal(nil)
+	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
+
+	Expect(onDeleteFnCalled).To.Equal(true)
 }
 
 func (_ *LayeredCacheTests) DeletesALayer() {
