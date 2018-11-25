@@ -2,9 +2,9 @@ package ccache
 
 import (
 	. "github.com/karlseguin/expect"
+	"strconv"
 	"testing"
 	"time"
-	"strconv"
 )
 
 type SecondaryCacheTests struct{}
@@ -77,14 +77,14 @@ func (_ SecondaryCacheTests) FetchReturnsAnExistingValue() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	sCache := cache.GetOrCreateSecondaryCache("spice")
-	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) {return "a fetched value", nil})
+	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) { return "a fetched value", nil })
 	Expect(val.Value().(string)).To.Equal("value-a")
 }
 
 func (_ SecondaryCacheTests) FetchReturnsANewValue() {
 	cache := newLayered()
 	sCache := cache.GetOrCreateSecondaryCache("spice")
-	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) {return "a fetched value", nil})
+	val, _ := sCache.Fetch("flow", time.Minute, func() (interface{}, error) { return "a fetched value", nil })
 	Expect(val.Value().(string)).To.Equal("a fetched value")
 }
 

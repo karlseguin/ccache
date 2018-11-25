@@ -98,7 +98,14 @@ func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFull() {
-	cache := New(Configure().MaxSize(5).ItemsToPrune(1))
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item) {
+		if item.key == "0" {
+			onDeleteFnCalled = true
+		}
+	}
+
+	cache := New(Configure().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -106,6 +113,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2").Value()).To.Equal(2)
+	Expect(onDeleteFnCalled).To.Equal(true)
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
