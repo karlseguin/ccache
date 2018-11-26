@@ -223,6 +223,9 @@ func (c *Cache) gc() {
 			c.bucket(item.key).delete(item.key)
 			c.size -= item.size
 			c.list.Remove(element)
+			if c.onDelete != nil {
+				c.onDelete(item)
+			}
 			item.promotions = -2
 		}
 		element = prev
