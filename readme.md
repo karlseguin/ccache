@@ -122,7 +122,7 @@ user := item.Value()   //will be nil if "user:4" didn't exist in the cache
 item.Release()  //can be called even if item.Value() returned nil
 ```
 
-In practive, `Release` wouldn't be called until later, at some other place in your code.
+In practice, `Release` wouldn't be called until later, at some other place in your code.
 
 There's a couple reason to use the tracking mode if other parts of your code also hold references to objects. First, if you're already going to hold a reference to these objects, there's really no reason not to have them in the cache - the memory is used up anyways.
 

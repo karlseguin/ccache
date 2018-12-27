@@ -192,7 +192,7 @@ func (c *LayeredCache) worker() {
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
-				item.promotions = -2
+				atomic.StoreInt32(&item.promotions, -2)
 			} else {
 				c.size -= item.size
 				if c.onDelete != nil {
@@ -206,13 +206,13 @@ func (c *LayeredCache) worker() {
 
 func (c *LayeredCache) doPromote(item *Item) bool {
 	// deleted before it ever got promoted
-	if item.promotions == -2 {
+	if atomic.LoadInt32(&item.promotions) == -2 {
 		return false
 	}
 	if item.element != nil { //not a new item
 		if item.shouldPromote(c.getsPerPromote) {
 			c.list.MoveToFront(item.element)
-			item.promotions = 0
+			atomic.StoreInt32(&item.promotions, 0)
 		}
 		return false
 	}
