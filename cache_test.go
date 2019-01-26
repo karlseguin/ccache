@@ -16,15 +16,19 @@ func Test_Cache(t *testing.T) {
 
 func (_ CacheTests) DeletesAValue() {
 	cache := New(Configure())
+	Expect(cache.ItemCount()).To.Equal(0)
+
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
+	Expect(cache.ItemCount()).To.Equal(2)
+
 	cache.Delete("spice")
 	Expect(cache.Get("spice")).To.Equal(nil)
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
+	Expect(cache.ItemCount()).To.Equal(1)
 }
 
 func (_ CacheTests) OnDeleteCallbackCalled() {
-
 	onDeleteFnCalled := false
 	onDeleteFn := func(item *Item) {
 		if item.key == "spice" {
@@ -66,6 +70,7 @@ func (_ CacheTests) GCsTheOldestItems() {
 	gcCache(cache)
 	Expect(cache.Get("9")).To.Equal(nil)
 	Expect(cache.Get("10").Value()).To.Equal(10)
+	Expect(cache.ItemCount()).To.Equal(490)
 }
 
 func (_ CacheTests) PromotedItemsDontGetPruned() {
@@ -114,6 +119,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2").Value()).To.Equal(2)
 	Expect(onDeleteFnCalled).To.Equal(true)
+	Expect(cache.ItemCount()).To.Equal(5)
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {

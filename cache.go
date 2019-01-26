@@ -37,6 +37,14 @@ func New(config *Configuration) *Cache {
 	return c
 }
 
+func (c *Cache) ItemCount() int {
+	count := 0
+	for _, b := range c.buckets {
+		count += b.itemCount()
+	}
+	return count
+}
+
 // Get an item from the cache. Returns nil if the item wasn't found.
 // This can return an expired item. Use item.Expired() to see if the item
 // is expired and item.TTL() to see how long until the item expires (which

@@ -17,6 +17,7 @@ func Test_LayeredCache(t *testing.T) {
 func (_ *LayeredCacheTests) GetsANonExistantValue() {
 	cache := newLayered()
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
+	Expect(cache.ItemCount()).To.Equal(0)
 }
 
 func (_ *LayeredCacheTests) SetANewValue() {
@@ -24,6 +25,7 @@ func (_ *LayeredCacheTests) SetANewValue() {
 	cache.Set("spice", "flow", "a value", time.Minute)
 	Expect(cache.Get("spice", "flow").Value()).To.Equal("a value")
 	Expect(cache.Get("spice", "stop")).To.Equal(nil)
+	Expect(cache.ItemCount()).To.Equal(1)
 }
 
 func (_ *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
@@ -38,6 +40,7 @@ func (_ *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 	Expect(cache.Get("leto", "brother")).To.Equal(nil)
 	Expect(cache.Get("baron", "friend")).To.Equal(nil)
+	Expect(cache.ItemCount()).To.Equal(3)
 }
 
 func (_ *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
@@ -51,6 +54,7 @@ func (_ *LayeredCacheTests) ReplaceUpdatesTheValue() {
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	Expect(cache.Replace("spice", "flow", "value-b")).To.Equal(true)
 	Expect(cache.Get("spice", "flow").Value().(string)).To.Equal("value-b")
+	Expect(cache.ItemCount()).To.Equal(1)
 	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
@@ -64,6 +68,7 @@ func (_ *LayeredCacheTests) DeletesAValue() {
 	Expect(cache.Get("spice", "must").Value()).To.Equal("value-b")
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
+	Expect(cache.ItemCount()).To.Equal(2)
 }
 
 func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {

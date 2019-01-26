@@ -10,6 +10,12 @@ type bucket struct {
 	lookup map[string]*Item
 }
 
+func (b *bucket) itemCount() int {
+	b.RLock()
+	defer b.RUnlock()
+	return len(b.lookup)
+}
+
 func (b *bucket) get(key string) *Item {
 	b.RLock()
 	defer b.RUnlock()

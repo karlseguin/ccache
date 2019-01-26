@@ -10,6 +10,16 @@ type layeredBucket struct {
 	buckets map[string]*bucket
 }
 
+func (b *layeredBucket) itemCount() int {
+	count := 0
+	b.RLock()
+	defer b.RUnlock()
+	for _, b := range b.buckets {
+		count += b.itemCount()
+	}
+	return count
+}
+
 func (b *layeredBucket) get(primary, secondary string) *Item {
 	bucket := b.getSecondaryBucket(primary)
 	if bucket == nil {
