@@ -9,7 +9,7 @@ import (
 type BucketTests struct {
 }
 
-func Tests_Bucket(t *testing.T) {
+func Test_Bucket(t *testing.T) {
 	Expectify(new(BucketTests), t)
 }
 
@@ -42,10 +42,10 @@ func (_ *BucketTests) SetsANewBucketItem() {
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
 	item, existing := bucket.set("power", TestValue("9001"), time.Minute)
-	assertValue(item, "9002")
+	assertValue(item, "9001")
 	item = bucket.get("power")
-	assertValue(item, "9002")
-	assertValue(existing, "9001")
+	assertValue(item, "9001")
+	assertValue(existing, "9000")
 }
 
 func testBucket() *bucket {
