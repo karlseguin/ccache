@@ -72,7 +72,7 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
-// Get the secondary cache for a given primary key. This operation will
+// GetOrCreateSecondaryCache gets the secondary cache for a given primary key. This operation will
 // never return nil. In the case where the primary key does not exist, a
 // new, underlying, empty bucket will be created and returned.
 func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache {
@@ -133,7 +133,7 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 	return c.set(primary, secondary, value, duration), nil
 }
 
-// Remove the item from the cache, return true if the item was present, false otherwise.
+// Delete removes the item from the cache, return true if the item was present, false otherwise.
 func (c *LayeredCache) Delete(primary, secondary string) bool {
 	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
