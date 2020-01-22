@@ -170,7 +170,7 @@ func (c *LayeredCache) restart() {
 
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
-	if existing != nil {
+	if existing != nil && !c.skipDeleteCallbackOnSet {
 		c.deletables <- existing
 	}
 	c.promote(item)

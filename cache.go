@@ -143,7 +143,7 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 
 func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(key).set(key, value, duration)
-	if existing != nil {
+	if existing != nil && !c.skipDeleteCallbackOnSet {
 		c.deletables <- existing
 	}
 	c.promote(item)

@@ -98,6 +98,24 @@ func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
 	Expect(onDeleteFnCalled).To.Equal(true)
 }
 
+func (_ *LayeredCacheTests) OnDeleteCallbackSkipped() {
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item) {
+		if item.key == "spice" {
+			onDeleteFnCalled = true
+		}
+	}
+
+	cache := Layered(Configure().OnDelete(onDeleteFn).SkipDeleteCallbackOnSet())
+	cache.Set("spice", "flow", "value-a", time.Minute)
+	cache.Set("spice", "must", "value-b", time.Minute)
+	cache.Set("leto", "sister", "ghanima", time.Minute)
+
+	time.Sleep(time.Millisecond * 10) // Wait for worker to pick up deleted items
+
+	Expect(onDeleteFnCalled).To.Equal(false)
+}
+
 func (_ *LayeredCacheTests) DeletesALayer() {
 	cache := newLayered()
 	cache.Set("spice", "flow", "value-a", time.Minute)

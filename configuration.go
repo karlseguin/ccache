@@ -1,14 +1,15 @@
 package ccache
 
 type Configuration struct {
-	maxSize        int64
-	buckets        int
-	itemsToPrune   int
-	deleteBuffer   int
-	promoteBuffer  int
-	getsPerPromote int32
-	tracking       bool
-	onDelete       func(item *Item)
+	maxSize                 int64
+	buckets                 int
+	itemsToPrune            int
+	deleteBuffer            int
+	promoteBuffer           int
+	getsPerPromote          int32
+	tracking                bool
+	onDelete                func(item *Item)
+	skipDeleteCallbackOnSet bool
 }
 
 // Creates a configuration object with sensible defaults
@@ -16,13 +17,14 @@ type Configuration struct {
 // e.g.: ccache.New(ccache.Configure().MaxSize(10000))
 func Configure() *Configuration {
 	return &Configuration{
-		buckets:        16,
-		itemsToPrune:   500,
-		deleteBuffer:   1024,
-		getsPerPromote: 3,
-		promoteBuffer:  1024,
-		maxSize:        5000,
-		tracking:       false,
+		buckets:                 16,
+		itemsToPrune:            500,
+		deleteBuffer:            1024,
+		getsPerPromote:          3,
+		promoteBuffer:           1024,
+		maxSize:                 5000,
+		tracking:                false,
+		skipDeleteCallbackOnSet: false,
 	}
 }
 
@@ -99,5 +101,12 @@ func (c *Configuration) Track() *Configuration {
 // cached object that require some kind of tear-down.
 func (c *Configuration) OnDelete(callback func(item *Item)) *Configuration {
 	c.onDelete = callback
+	return c
+}
+
+// SkipDeleteCallbackOnSet prevents calling onDelete callback when overwritting
+// an exiting item using Set or Replace.
+func (c *Configuration) SkipDeleteCallbackOnSet() *Configuration {
+	c.skipDeleteCallbackOnSet = true
 	return c
 }
