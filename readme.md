@@ -91,6 +91,9 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 cache.Delete("user:4")
 ```
 
+### Clear
+`Clear` clears the cache. This method is **not** thread safe. It is meant to be used from tests.
+
 ### Extend
 The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
 
