@@ -91,6 +91,9 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 cache.Delete("user:4")
 ```
 
+### DeletePrefix
+`DeletePrefix` deletes all keys matching the provided prefix. Returns the number of keys removed.
+
 ### Clear
 `Clear` clears the cache. This method is **not** thread safe. It is meant to be used from tests.
 

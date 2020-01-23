@@ -28,6 +28,29 @@ func (_ CacheTests) DeletesAValue() {
 	Expect(cache.ItemCount()).To.Equal(1)
 }
 
+func (_ CacheTests) DeletesAPrefix() {
+	cache := New(Configure())
+	Expect(cache.ItemCount()).To.Equal(0)
+
+	cache.Set("aaa", "1", time.Minute)
+	cache.Set("aab", "2", time.Minute)
+	cache.Set("aac", "3", time.Minute)
+	cache.Set("ac", "4", time.Minute)
+	cache.Set("z5", "7", time.Minute)
+	Expect(cache.ItemCount()).To.Equal(5)
+
+	Expect(cache.DeletePrefix("9a")).To.Equal(0)
+	Expect(cache.ItemCount()).To.Equal(5)
+
+	Expect(cache.DeletePrefix("aa")).To.Equal(3)
+	Expect(cache.Get("aaa")).To.Equal(nil)
+	Expect(cache.Get("aab")).To.Equal(nil)
+	Expect(cache.Get("aac")).To.Equal(nil)
+	Expect(cache.Get("ac").Value()).To.Equal("4")
+	Expect(cache.Get("z5").Value()).To.Equal("7")
+	Expect(cache.ItemCount()).To.Equal(2)
+}
+
 func (_ CacheTests) OnDeleteCallbackCalled() {
 	onDeleteFnCalled := false
 	onDeleteFn := func(item *Item) {
