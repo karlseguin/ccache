@@ -27,17 +27,17 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration) (*It
 	expires := time.Now().Add(duration).UnixNano()
 	item := newItem(key, value, expires)
 	b.Lock()
-	defer b.Unlock()
 	existing := b.lookup[key]
 	b.lookup[key] = item
+	b.Unlock()
 	return item, existing
 }
 
 func (b *bucket) delete(key string) *Item {
 	b.Lock()
-	defer b.Unlock()
 	item := b.lookup[key]
 	delete(b.lookup, key)
+	b.Unlock()
 	return item
 }
 
@@ -73,15 +73,15 @@ func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
 	}
 
 	b.Lock()
-	defer b.Unlock()
 	for _, item := range items {
 		delete(lookup, item.key)
 	}
+	b.Unlock()
 	return len(items)
 }
 
 func (b *bucket) clear() {
 	b.Lock()
-	defer b.Unlock()
 	b.lookup = make(map[string]*Item)
+	b.Unlock()
 }
