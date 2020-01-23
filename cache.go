@@ -14,7 +14,7 @@ type Cache struct {
 	size        int64
 	buckets     []*bucket
 	bucketMask  uint32
-	deletables  chan *Item
+	deletables  chan event
 	promotables chan *Item
 	donec       chan struct{}
 }
@@ -107,7 +107,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 func (c *Cache) Delete(key string) bool {
 	item := c.bucket(key).delete(key)
 	if item != nil {
-		c.deletables <- item
+		c.deletables <- event{item, eventKindDelete}
 		return true
 	}
 	return false
@@ -130,21 +130,16 @@ func (c *Cache) Stop() {
 }
 
 func (c *Cache) restart() {
-	c.deletables = make(chan *Item, c.deleteBuffer)
+	c.deletables = make(chan event, c.deleteBuffer)
 	c.promotables = make(chan *Item, c.promoteBuffer)
 	c.donec = make(chan struct{})
 	go c.worker()
 }
 
-func (c *Cache) deleteItem(bucket *bucket, item *Item) {
-	bucket.delete(item.key) //stop other GETs from getting it
-	c.deletables <- item
-}
-
 func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(key).set(key, value, duration)
-	if existing != nil && !c.skipDeleteCallbackOnSet {
-		c.deletables <- existing
+	if existing != nil {
+		c.deletables <- event{existing, eventKindUpdate}
 	}
 	c.promote(item)
 	return item
@@ -172,16 +167,16 @@ func (c *Cache) worker() {
 			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
-		case item := <-c.deletables:
-			c.doDelete(item)
+		case evt := <-c.deletables:
+			c.doDelete(evt)
 		}
 	}
 
 drain:
 	for {
 		select {
-		case item := <-c.deletables:
-			c.doDelete(item)
+		case evt := <-c.deletables:
+			c.doDelete(evt)
 		default:
 			close(c.deletables)
 			return
@@ -189,15 +184,15 @@ drain:
 	}
 }
 
-func (c *Cache) doDelete(item *Item) {
-	if item.element == nil {
-		item.promotions = -2
+func (c *Cache) doDelete(evt event) {
+	if evt.item.element == nil {
+		evt.item.promotions = -2
 	} else {
-		c.size -= item.size
-		if c.onDelete != nil {
-			c.onDelete(item)
+		c.size -= evt.item.size
+		if c.onDelete != nil && (!c.skipDeleteCallbackOnSet || evt.kind == eventKindDelete) {
+			c.onDelete(evt.item)
 		}
-		c.list.Remove(item.element)
+		c.list.Remove(evt.item.element)
 	}
 }
 

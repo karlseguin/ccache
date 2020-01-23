@@ -18,7 +18,7 @@ func (s *SecondaryCache) Get(secondary string) *Item {
 func (s *SecondaryCache) Set(secondary string, value interface{}, duration time.Duration) *Item {
 	item, existing := s.bucket.set(secondary, value, duration)
 	if existing != nil {
-		s.pCache.deletables <- existing
+		s.pCache.deletables <- event{existing, eventKindUpdate}
 	}
 	s.pCache.promote(item)
 	return item
@@ -43,7 +43,7 @@ func (s *SecondaryCache) Fetch(secondary string, duration time.Duration, fetch f
 func (s *SecondaryCache) Delete(secondary string) bool {
 	item := s.bucket.delete(secondary)
 	if item != nil {
-		s.pCache.deletables <- item
+		s.pCache.deletables <- event{item, eventKindDelete}
 		return true
 	}
 	return false

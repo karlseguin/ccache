@@ -14,7 +14,7 @@ type LayeredCache struct {
 	buckets     []*layeredBucket
 	bucketMask  uint32
 	size        int64
-	deletables  chan *Item
+	deletables  chan event
 	promotables chan *Item
 	donec       chan struct{}
 }
@@ -38,7 +38,7 @@ func Layered(config *Configuration) *LayeredCache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
-		deletables:    make(chan *Item, config.deleteBuffer),
+		deletables:    make(chan event, config.deleteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
@@ -137,7 +137,7 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 func (c *LayeredCache) Delete(primary, secondary string) bool {
 	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
-		c.deletables <- item
+		c.deletables <- event{item, eventKindDelete}
 		return true
 	}
 	return false
@@ -170,8 +170,8 @@ func (c *LayeredCache) restart() {
 
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration) *Item {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration)
-	if existing != nil && !c.skipDeleteCallbackOnSet {
-		c.deletables <- existing
+	if existing != nil {
+		c.deletables <- event{existing, eventKindUpdate}
 	}
 	c.promote(item)
 	return item
@@ -198,15 +198,15 @@ func (c *LayeredCache) worker() {
 			if c.doPromote(item) && c.size > c.maxSize {
 				c.gc()
 			}
-		case item := <-c.deletables:
-			if item.element == nil {
-				atomic.StoreInt32(&item.promotions, -2)
+		case evt := <-c.deletables:
+			if evt.item.element == nil {
+				atomic.StoreInt32(&(evt.item).promotions, -2)
 			} else {
-				c.size -= item.size
-				if c.onDelete != nil {
-					c.onDelete(item)
+				c.size -= evt.item.size
+				if c.onDelete != nil && (!c.skipDeleteCallbackOnSet || evt.kind == eventKindDelete) {
+					c.onDelete(evt.item)
 				}
-				c.list.Remove(item.element)
+				c.list.Remove(evt.item.element)
 			}
 		}
 	}

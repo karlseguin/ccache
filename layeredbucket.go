@@ -61,7 +61,7 @@ func (b *layeredBucket) delete(primary, secondary string) *Item {
 	return bucket.delete(secondary)
 }
 
-func (b *layeredBucket) deleteAll(primary string, deletables chan *Item) bool {
+func (b *layeredBucket) deleteAll(primary string, deletables chan event) bool {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
@@ -77,7 +77,7 @@ func (b *layeredBucket) deleteAll(primary string, deletables chan *Item) bool {
 	}
 	for key, item := range bucket.lookup {
 		delete(bucket.lookup, key)
-		deletables <- item
+		deletables <- event{item, eventKindDelete}
 	}
 	return true
 }
