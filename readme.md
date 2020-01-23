@@ -7,6 +7,8 @@ Lock contention on the list is reduced by:
 * Using a buffered channel to queue promotions for a single worker
 * Garbage collecting within the same thread as the worker
 
+Unless otherwise stated, all methods are thread-safe.
+
 ## Setup
 
 First, download the project:
@@ -126,7 +128,7 @@ In practice, `Release` wouldn't be called until later, at some other place in yo
 
 There's a couple reason to use the tracking mode if other parts of your code also hold references to objects. First, if you're already going to hold a reference to these objects, there's really no reason not to have them in the cache - the memory is used up anyways.
 
-More important, it helps ensure that you're code returns consistent data. With tracking, "user:4" might be purged, and a subsequent `Fetch` would reload the data. This can result in different versions of "user:4" being returned by different parts of your system.
+More important, it helps ensure that your code returns consistent data. With tracking, "user:4" might be purged, and a subsequent `Fetch` would reload the data. This can result in different versions of "user:4" being returned by different parts of your system.
 
 ## LayeredCache
 
