@@ -156,6 +156,8 @@ func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 	Expect(cache.Get("2")).To.Equal(nil)
 	Expect(cache.Get("3")).To.Equal(nil)
 	Expect(cache.Get("4").Value().(*SizedItem).id).To.Equal(4)
+	Expect(cache.GetDropped()).To.Equal(4)
+	Expect(cache.GetDropped()).To.Equal(0)
 }
 
 func (_ CacheTests) SetUpdatesSizeOnDelta() {

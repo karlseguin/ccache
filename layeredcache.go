@@ -10,13 +10,15 @@ import (
 
 type LayeredCache struct {
 	*Configuration
-	list        *list.List
-	buckets     []*layeredBucket
-	bucketMask  uint32
-	size        int64
-	deletables  chan *Item
-	promotables chan *Item
-	donec       chan struct{}
+	list          *list.List
+	buckets       []*layeredBucket
+	bucketMask    uint32
+	size          int64
+	deletables    chan *Item
+	promotables   chan *Item
+	donec         chan struct{}
+	getDroppedReq chan struct{}
+	getDroppedRes chan int
 }
 
 // Create a new layered cache with the specified configuration.
@@ -39,6 +41,8 @@ func Layered(config *Configuration) *LayeredCache {
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
+		getDroppedReq: make(chan struct{}),
+		getDroppedRes: make(chan int),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
@@ -162,6 +166,13 @@ func (c *LayeredCache) Stop() {
 	<-c.donec
 }
 
+// Gets the number of items removed from the cache due to memory pressure since
+// the last time GetDropped was called
+func (c *LayeredCache) GetDropped() int {
+	c.getDroppedReq <- struct{}{}
+	return <-c.getDroppedRes
+}
+
 func (c *LayeredCache) restart() {
 	c.promotables = make(chan *Item, c.promoteBuffer)
 	c.donec = make(chan struct{})
@@ -189,6 +200,7 @@ func (c *LayeredCache) promote(item *Item) {
 
 func (c *LayeredCache) worker() {
 	defer close(c.donec)
+	dropped := 0
 	for {
 		select {
 		case item, ok := <-c.promotables:
@@ -196,7 +208,7 @@ func (c *LayeredCache) worker() {
 				return
 			}
 			if c.doPromote(item) && c.size > c.maxSize {
-				c.gc()
+				dropped += c.gc()
 			}
 		case item := <-c.deletables:
 			if item.element == nil {
@@ -208,6 +220,9 @@ func (c *LayeredCache) worker() {
 				}
 				c.list.Remove(item.element)
 			}
+		case _ = <-c.getDroppedReq:
+			c.getDroppedRes <- dropped
+			dropped = 0
 		}
 	}
 }
@@ -229,11 +244,12 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *LayeredCache) gc() {
+func (c *LayeredCache) gc() int {
 	element := c.list.Back()
+	dropped := 0
 	for i := 0; i < c.itemsToPrune; i++ {
 		if element == nil {
-			return
+			return dropped
 		}
 		prev := element.Prev()
 		item := element.Value.(*Item)
@@ -242,7 +258,9 @@ func (c *LayeredCache) gc() {
 			c.size -= item.size
 			c.list.Remove(element)
 			item.promotions = -2
+			dropped += 1
 		}
 		element = prev
 	}
+	return dropped
 }

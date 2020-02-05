@@ -170,6 +170,8 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("2", "a")).To.Equal(nil)
 	Expect(cache.Get("3", "a").Value()).To.Equal(3)
 	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
+	Expect(cache.GetDropped()).To.Equal(4)
+	Expect(cache.GetDropped()).To.Equal(0)
 }
 
 func newLayered() *LayeredCache {

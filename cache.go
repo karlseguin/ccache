@@ -10,13 +10,15 @@ import (
 
 type Cache struct {
 	*Configuration
-	list        *list.List
-	size        int64
-	buckets     []*bucket
-	bucketMask  uint32
-	deletables  chan *Item
-	promotables chan *Item
-	donec       chan struct{}
+	list          *list.List
+	size          int64
+	buckets       []*bucket
+	bucketMask    uint32
+	deletables    chan *Item
+	promotables   chan *Item
+	donec         chan struct{}
+	getDroppedReq chan struct{}
+	getDroppedRes chan int
 }
 
 // Create a new cache with the specified configuration
@@ -27,6 +29,8 @@ func New(config *Configuration) *Cache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
+		getDroppedReq: make(chan struct{}),
+		getDroppedRes: make(chan int),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &bucket{
@@ -137,6 +141,13 @@ func (c *Cache) Stop() {
 	<-c.donec
 }
 
+// Gets the number of items removed from the cache due to memory pressure since
+// the last time GetDropped was called
+func (c *Cache) GetDropped() int {
+	c.getDroppedReq <- struct{}{}
+	return <-c.getDroppedRes
+}
+
 func (c *Cache) restart() {
 	c.deletables = make(chan *Item, c.deleteBuffer)
 	c.promotables = make(chan *Item, c.promoteBuffer)
@@ -170,7 +181,7 @@ func (c *Cache) promote(item *Item) {
 
 func (c *Cache) worker() {
 	defer close(c.donec)
-
+	dropped := 0
 	for {
 		select {
 		case item, ok := <-c.promotables:
@@ -178,10 +189,13 @@ func (c *Cache) worker() {
 				goto drain
 			}
 			if c.doPromote(item) && c.size > c.maxSize {
-				c.gc()
+				dropped += c.gc()
 			}
 		case item := <-c.deletables:
 			c.doDelete(item)
+		case _ = <-c.getDroppedReq:
+			c.getDroppedRes <- dropped
+			dropped = 0
 		}
 	}
 
@@ -227,11 +241,12 @@ func (c *Cache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *Cache) gc() {
+func (c *Cache) gc() int {
+	dropped := 0
 	element := c.list.Back()
 	for i := 0; i < c.itemsToPrune; i++ {
 		if element == nil {
-			return
+			return dropped
 		}
 		prev := element.Prev()
 		item := element.Value.(*Item)
@@ -242,8 +257,10 @@ func (c *Cache) gc() {
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
+			dropped += 1
 			item.promotions = -2
 		}
 		element = prev
 	}
+	return dropped
 }
