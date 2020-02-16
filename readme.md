@@ -13,7 +13,9 @@ Unless otherwise stated, all methods are thread-safe.
 
 First, download the project:
 
+```go
     go get github.com/karlseguin/ccache
+```
 
 ## Configuration
 Next, import and create a `Cache` instance:
@@ -108,6 +110,14 @@ cache.Replace("user:4", user)
 ```
 
 `Replace` returns true if the item existed (and thus was replaced). In the case where the key was not in the cache, the value *is not* inserted and false is returned.
+
+### GetDropped
+You can get the number of keys evicted due to memory pressure by calling `GetDropped`:
+
+```go
+dropped := cache.GetDropped()
+```
+The counter is reset on every call. If the cache's gc is running, `GetDropped` waits for it to finish; it's meant ot be called asynchronously for statistics /monitoring purposes.
 
 ### Stop
 The cache's background worker can be stopped by calling `Stop`. Once `Stop` is called
