@@ -208,6 +208,38 @@ func (_ CacheTests) ReplaceChangesSize() {
 	checkSize(cache, 5)
 }
 
+func (_ CacheTests) ResizeOnTheFly() {
+	cache := New(Configure().MaxSize(9).ItemsToPrune(1))
+	for i := 0; i < 5; i++ {
+		cache.Set(strconv.Itoa(i), i, time.Minute)
+	}
+	cache.SetMaxSize(3)
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.GetDropped()).To.Equal(2)
+	Expect(cache.Get("0")).To.Equal(nil)
+	Expect(cache.Get("1")).To.Equal(nil)
+	Expect(cache.Get("2").Value()).To.Equal(2)
+	Expect(cache.Get("3").Value()).To.Equal(3)
+	Expect(cache.Get("4").Value()).To.Equal(4)
+
+	cache.Set("5", 5, time.Minute)
+	time.Sleep(time.Millisecond * 5)
+	Expect(cache.GetDropped()).To.Equal(1)
+	Expect(cache.Get("2")).To.Equal(nil)
+	Expect(cache.Get("3").Value()).To.Equal(3)
+	Expect(cache.Get("4").Value()).To.Equal(4)
+	Expect(cache.Get("5").Value()).To.Equal(5)
+
+	cache.SetMaxSize(10)
+	cache.Set("6", 6, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.GetDropped()).To.Equal(0)
+	Expect(cache.Get("3").Value()).To.Equal(3)
+	Expect(cache.Get("4").Value()).To.Equal(4)
+	Expect(cache.Get("5").Value()).To.Equal(5)
+	Expect(cache.Get("6").Value()).To.Equal(6)
+}
+
 type SizedItem struct {
 	id int
 	s  int64

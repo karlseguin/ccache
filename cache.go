@@ -8,17 +8,24 @@ import (
 	"time"
 )
 
+// The cache has a generic 'control' channel that is used to send
+// messages to the worker. These are the messages that can be sent to it
+type getDropped struct {
+	res chan int
+}
+type setMaxSize struct {
+	size int64
+}
+
 type Cache struct {
 	*Configuration
-	list          *list.List
-	size          int64
-	buckets       []*bucket
-	bucketMask    uint32
-	deletables    chan *Item
-	promotables   chan *Item
-	donec         chan struct{}
-	getDroppedReq chan struct{}
-	getDroppedRes chan int
+	list        *list.List
+	size        int64
+	buckets     []*bucket
+	bucketMask  uint32
+	deletables  chan *Item
+	promotables chan *Item
+	control     chan interface{}
 }
 
 // Create a new cache with the specified configuration
@@ -29,8 +36,7 @@ func New(config *Configuration) *Cache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
-		getDroppedReq: make(chan struct{}),
-		getDroppedRes: make(chan int),
+		control:       make(chan interface{}),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &bucket{
@@ -138,20 +144,27 @@ func (c *Cache) Clear() {
 // is called are likely to panic
 func (c *Cache) Stop() {
 	close(c.promotables)
-	<-c.donec
+	<-c.control
 }
 
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
 func (c *Cache) GetDropped() int {
-	c.getDroppedReq <- struct{}{}
-	return <-c.getDroppedRes
+	res := make(chan int)
+	c.control <- getDropped{res: res}
+	return <-res
+}
+
+// Sets a new max size. That can result in a GC being run if the new maxium size
+// is smaller than the cached size
+func (c *Cache) SetMaxSize(size int64) {
+	c.control <- setMaxSize{size}
 }
 
 func (c *Cache) restart() {
 	c.deletables = make(chan *Item, c.deleteBuffer)
 	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.donec = make(chan struct{})
+	c.control = make(chan interface{})
 	go c.worker()
 }
 
@@ -180,7 +193,7 @@ func (c *Cache) promote(item *Item) {
 }
 
 func (c *Cache) worker() {
-	defer close(c.donec)
+	defer close(c.control)
 	dropped := 0
 	for {
 		select {
@@ -193,9 +206,17 @@ func (c *Cache) worker() {
 			}
 		case item := <-c.deletables:
 			c.doDelete(item)
-		case _ = <-c.getDroppedReq:
-			c.getDroppedRes <- dropped
-			dropped = 0
+		case control := <-c.control:
+			switch msg := control.(type) {
+			case getDropped:
+				msg.res <- dropped
+				dropped = 0
+			case setMaxSize:
+				c.maxSize = msg.size
+				if c.size > c.maxSize {
+					dropped += c.gc()
+				}
+			}
 		}
 	}
 

@@ -174,6 +174,38 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.GetDropped()).To.Equal(0)
 }
 
+func (_ LayeredCacheTests) ResizeOnTheFly() {
+	cache := Layered(Configure().MaxSize(9).ItemsToPrune(1))
+	for i := 0; i < 5; i++ {
+		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
+	}
+	cache.SetMaxSize(3)
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.GetDropped()).To.Equal(2)
+	Expect(cache.Get("0", "a")).To.Equal(nil)
+	Expect(cache.Get("1", "a")).To.Equal(nil)
+	Expect(cache.Get("2", "a").Value()).To.Equal(2)
+	Expect(cache.Get("3", "a").Value()).To.Equal(3)
+	Expect(cache.Get("4", "a").Value()).To.Equal(4)
+
+	cache.Set("5", "a", 5, time.Minute)
+	time.Sleep(time.Millisecond * 5)
+	Expect(cache.GetDropped()).To.Equal(1)
+	Expect(cache.Get("2", "a")).To.Equal(nil)
+	Expect(cache.Get("3", "a").Value()).To.Equal(3)
+	Expect(cache.Get("4", "a").Value()).To.Equal(4)
+	Expect(cache.Get("5", "a").Value()).To.Equal(5)
+
+	cache.SetMaxSize(10)
+	cache.Set("6", "a", 6, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(cache.GetDropped()).To.Equal(0)
+	Expect(cache.Get("3", "a").Value()).To.Equal(3)
+	Expect(cache.Get("4", "a").Value()).To.Equal(4)
+	Expect(cache.Get("5", "a").Value()).To.Equal(5)
+	Expect(cache.Get("6", "a").Value()).To.Equal(6)
+}
+
 func newLayered() *LayeredCache {
 	return Layered(Configure())
 }
