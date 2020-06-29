@@ -14,7 +14,7 @@ Unless otherwise stated, all methods are thread-safe.
 First, download the project:
 
 ```go
-    go get github.com/karlseguin/ccache
+    go get github.com/karlseguin/ccache/v2
 ```
 
 ## Configuration
@@ -23,7 +23,7 @@ Next, import and create a `Cache` instance:
 
 ```go
 import (
-  "github.com/karlseguin/ccache"
+  "github.com/karlseguin/ccache/v2"
 )
 
 var cache = ccache.New(ccache.Configure())
