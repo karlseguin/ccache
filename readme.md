@@ -87,7 +87,7 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 ```
 
 ### Delete
-`Delete` expects the key to delete. It's ok to call `Delete` on a non-existant key:
+`Delete` expects the key to delete. It's ok to call `Delete` on a non-existent key:
 
 ```go
 cache.Delete("user:4")
@@ -117,7 +117,7 @@ You can get the number of keys evicted due to memory pressure by calling `GetDro
 ```go
 dropped := cache.GetDropped()
 ```
-The counter is reset on every call. If the cache's gc is running, `GetDropped` waits for it to finish; it's meant ot be called asynchronously for statistics /monitoring purposes.
+The counter is reset on every call. If the cache's gc is running, `GetDropped` waits for it to finish; it's meant to be called asynchronously for statistics /monitoring purposes.
 
 ### Stop
 The cache's background worker can be stopped by calling `Stop`. Once `Stop` is called
