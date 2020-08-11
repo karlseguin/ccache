@@ -149,6 +149,11 @@ func (c *LayeredCache) DeleteAll(primary string) bool {
 	return c.bucket(primary).deleteAll(primary, c.deletables)
 }
 
+// Deletes all items that share the same primary key and prefix.
+func (c *LayeredCache) DeletePrefix(primary, prefix string) int {
+	return c.bucket(primary).deletePrefix(primary, prefix, c.deletables)
+}
+
 //this isn't thread safe. It's meant to be called from non-concurrent tests
 func (c *LayeredCache) Clear() {
 	for _, bucket := range c.buckets {
