@@ -71,6 +71,30 @@ func (_ *LayeredCacheTests) DeletesAValue() {
 	Expect(cache.ItemCount()).To.Equal(2)
 }
 
+func (_ *LayeredCacheTests) DeletesAPrefix() {
+	cache := newLayered()
+	Expect(cache.ItemCount()).To.Equal(0)
+
+	cache.Set("spice", "aaa", "1", time.Minute)
+	cache.Set("spice", "aab", "2", time.Minute)
+	cache.Set("spice", "aac", "3", time.Minute)
+	cache.Set("leto", "aac", "3", time.Minute)
+	cache.Set("spice", "ac", "4", time.Minute)
+	cache.Set("spice", "z5", "7", time.Minute)
+	Expect(cache.ItemCount()).To.Equal(6)
+
+	Expect(cache.DeletePrefix("spice", "9a")).To.Equal(0)
+	Expect(cache.ItemCount()).To.Equal(6)
+
+	Expect(cache.DeletePrefix("spice", "aa")).To.Equal(3)
+	Expect(cache.Get("spice", "aaa")).To.Equal(nil)
+	Expect(cache.Get("spice", "aab")).To.Equal(nil)
+	Expect(cache.Get("spice", "aac")).To.Equal(nil)
+	Expect(cache.Get("spice", "ac").Value()).To.Equal("4")
+	Expect(cache.Get("spice", "z5").Value()).To.Equal("7")
+	Expect(cache.ItemCount()).To.Equal(3)
+}
+
 func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
 
 	onDeleteFnCalled := false
