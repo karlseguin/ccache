@@ -54,13 +54,13 @@ func (b *bucket) delete(key string) *Item {
 // the item from the map. I'm pretty sure this is 100% fine, but it is unique.
 // (We do this so that the write to the channel is under the read lock and not the
 // write lock)
-func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
+func (b *bucket) deleteFunc(matches func(key string, item interface{}) bool, deletables chan *Item) int {
 	lookup := b.lookup
 	items := make([]*Item, 0, len(lookup)/10)
 
 	b.RLock()
 	for key, item := range lookup {
-		if strings.HasPrefix(key, prefix) {
+		if matches(key, item) {
 			deletables <- item
 			items = append(items, item)
 		}
@@ -78,6 +78,12 @@ func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
 	}
 	b.Unlock()
 	return len(items)
+}
+
+func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
+	return b.deleteFunc(func(key string, item interface{}) bool {
+		return strings.HasPrefix(key, prefix)
+	}, deletables)
 }
 
 func (b *bucket) clear() {
