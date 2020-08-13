@@ -56,7 +56,12 @@ func (b *bucket) delete(key string) *Item {
 // write lock)
 func (b *bucket) deleteFunc(matches func(key string, item interface{}) bool, deletables chan *Item) int {
 	lookup := b.lookup
-	items := make([]*Item, 0, len(lookup)/10)
+
+	b.RLock()
+	l := len(lookup)
+	b.RUnlock()
+
+	items := make([]*Item, 0, l/10)
 
 	b.RLock()
 	for key, item := range lookup {
