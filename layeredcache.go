@@ -155,7 +155,7 @@ func (c *LayeredCache) DeletePrefix(primary, prefix string) int {
 }
 
 // Deletes all items that share the same primary key and where the matches func evaluates to true.
-func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item interface{}) bool) int {
+func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item *Item) bool) int {
 	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
 }
 
