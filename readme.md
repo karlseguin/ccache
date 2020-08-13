@@ -96,6 +96,9 @@ cache.Delete("user:4")
 ### DeletePrefix
 `DeletePrefix` deletes all keys matching the provided prefix. Returns the number of keys removed.
 
+### DeleteFunc
+`DeleteFunc` deletes all items that the provded matches func evaluates to true. Returns the number of keys removed.
+
 ### Clear
 `Clear` clears the cache. This method is **not** thread safe. It is meant to be used from tests.
 
