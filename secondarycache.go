@@ -16,7 +16,7 @@ func (s *SecondaryCache) Get(secondary string) *Item {
 // Set the secondary key to a value.
 // The semantics are the same as for LayeredCache.Set
 func (s *SecondaryCache) Set(secondary string, value interface{}, duration time.Duration) *Item {
-	item, existing := s.bucket.set(secondary, value, duration)
+	item, existing := s.bucket.set(secondary, value, duration, false)
 	if existing != nil {
 		s.pCache.deletables <- existing
 	}
