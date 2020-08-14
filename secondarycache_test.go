@@ -1,10 +1,11 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
 	"strconv"
 	"testing"
 	"time"
+
+	. "github.com/karlseguin/expect"
 )
 
 type SecondaryCacheTests struct{}

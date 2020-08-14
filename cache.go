@@ -98,9 +98,15 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 	return item
 }
 
+// Used when the cache was created with the Track() configuration option.
+// Sets the item, and returns a tracked reference to it.
+func (c *Cache) TrackingSet(key string, value interface{}, duration time.Duration) TrackedItem {
+	return c.set(key, value, duration, true)
+}
+
 // Set the value in the cache for the specified duration
 func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
-	c.set(key, value, duration)
+	c.set(key, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -127,7 +133,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 	if err != nil {
 		return nil, err
 	}
-	return c.set(key, value, duration), nil
+	return c.set(key, value, duration, false), nil
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
@@ -182,8 +188,8 @@ func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	c.deletables <- item
 }
 
-func (c *Cache) set(key string, value interface{}, duration time.Duration) *Item {
-	item, existing := c.bucket(key).set(key, value, duration)
+func (c *Cache) set(key string, value interface{}, duration time.Duration, track bool) *Item {
+	item, existing := c.bucket(key).set(key, value, duration, track)
 	if existing != nil {
 		c.deletables <- existing
 	}

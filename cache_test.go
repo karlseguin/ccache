@@ -140,18 +140,21 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 }
 
 func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
-	cache := New(Configure().ItemsToPrune(10).Track())
-	for i := 0; i < 10; i++ {
+	cache := New(Configure().ItemsToPrune(11).Track())
+	item0 := cache.TrackingSet("0", 0, time.Minute)
+	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
-	item := cache.TrackingGet("0")
+	item1 := cache.TrackingGet("1")
 	time.Sleep(time.Millisecond * 10)
 	gcCache(cache)
 	Expect(cache.Get("0").Value()).To.Equal(0)
-	Expect(cache.Get("1")).To.Equal(nil)
-	item.Release()
+	Expect(cache.Get("1").Value()).To.Equal(1)
+	item0.Release()
+	item1.Release()
 	gcCache(cache)
 	Expect(cache.Get("0")).To.Equal(nil)
+	Expect(cache.Get("1")).To.Equal(nil)
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFull() {

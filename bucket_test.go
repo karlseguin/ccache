@@ -1,9 +1,10 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
 	"testing"
 	"time"
+
+	. "github.com/karlseguin/expect"
 )
 
 type BucketTests struct {
@@ -32,7 +33,7 @@ func (_ *BucketTests) DeleteItemFromBucket() {
 
 func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("spice", TestValue("flow"), time.Minute)
+	item, existing := bucket.set("spice", TestValue("flow"), time.Minute, false)
 	assertValue(item, "flow")
 	item = bucket.get("spice")
 	assertValue(item, "flow")
@@ -41,7 +42,7 @@ func (_ *BucketTests) SetsANewBucketItem() {
 
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("power", TestValue("9001"), time.Minute)
+	item, existing := bucket.set("power", TestValue("9001"), time.Minute, false)
 	assertValue(item, "9001")
 	item = bucket.get("power")
 	assertValue(item, "9001")

@@ -52,18 +52,22 @@ type Item struct {
 	element    *list.Element
 }
 
-func newItem(key string, value interface{}, expires int64) *Item {
+func newItem(key string, value interface{}, expires int64, track bool) *Item {
 	size := int64(1)
 	if sized, ok := value.(Sized); ok {
 		size = sized.Size()
 	}
-	return &Item{
+	item := &Item{
 		key:        key,
 		value:      value,
 		promotions: 0,
 		size:       size,
 		expires:    expires,
 	}
+	if track {
+		item.refCount = 1
+	}
+	return item
 }
 
 func (i *Item) shouldPromote(getsPerPromote int32) bool {

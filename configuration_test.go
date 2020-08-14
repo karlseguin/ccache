@@ -1,8 +1,9 @@
 package ccache
 
 import (
-	. "github.com/karlseguin/expect"
 	"testing"
+
+	. "github.com/karlseguin/expect"
 )
 
 type ConfigurationTests struct{}

@@ -46,7 +46,7 @@ func (b *layeredBucket) set(primary, secondary string, value interface{}, durati
 		b.buckets[primary] = bkt
 	}
 	b.Unlock()
-	item, existing := bkt.set(secondary, value, duration)
+	item, existing := bkt.set(secondary, value, duration, false)
 	item.group = primary
 	return item, existing
 }

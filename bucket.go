@@ -23,9 +23,9 @@ func (b *bucket) get(key string) *Item {
 	return b.lookup[key]
 }
 
-func (b *bucket) set(key string, value interface{}, duration time.Duration) (*Item, *Item) {
+func (b *bucket) set(key string, value interface{}, duration time.Duration, track bool) (*Item, *Item) {
 	expires := time.Now().Add(duration).UnixNano()
-	item := newItem(key, value, expires)
+	item := newItem(key, value, expires, track)
 	b.Lock()
 	existing := b.lookup[key]
 	b.lookup[key] = item
