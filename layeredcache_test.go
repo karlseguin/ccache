@@ -196,17 +196,20 @@ func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
 
 func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := Layered(Configure().ItemsToPrune(10).Track())
-	for i := 0; i < 10; i++ {
+	item0 := cache.TrackingSet("0", "a", 0, time.Minute)
+	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
-	item := cache.TrackingGet("0", "a")
+	item1 := cache.TrackingGet("1", "a")
 	time.Sleep(time.Millisecond * 10)
 	gcLayeredCache(cache)
 	Expect(cache.Get("0", "a").Value()).To.Equal(0)
-	Expect(cache.Get("1", "a")).To.Equal(nil)
-	item.Release()
+	Expect(cache.Get("1", "a").Value()).To.Equal(1)
+	item0.Release()
+	item1.Release()
 	gcLayeredCache(cache)
 	Expect(cache.Get("0", "a")).To.Equal(nil)
+	Expect(cache.Get("1", "a")).To.Equal(nil)
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {

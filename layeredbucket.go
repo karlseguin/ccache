@@ -38,7 +38,7 @@ func (b *layeredBucket) getSecondaryBucket(primary string) *bucket {
 	return bucket
 }
 
-func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration) (*Item, *Item) {
+func (b *layeredBucket) set(primary, secondary string, value interface{}, duration time.Duration, track bool) (*Item, *Item) {
 	b.Lock()
 	bkt, exists := b.buckets[primary]
 	if exists == false {
@@ -46,7 +46,7 @@ func (b *layeredBucket) set(primary, secondary string, value interface{}, durati
 		b.buckets[primary] = bkt
 	}
 	b.Unlock()
-	item, existing := bkt.set(secondary, value, duration, false)
+	item, existing := bkt.set(secondary, value, duration, track)
 	item.group = primary
 	return item, existing
 }
