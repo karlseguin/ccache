@@ -71,7 +71,7 @@ func (b *layeredBucket) deletePrefix(primary, prefix string, deletables chan *It
 	return bucket.deletePrefix(prefix, deletables)
 }
 
-func (b *layeredBucket) deleteFunc(primary string, matches func(key string, item interface{}) bool, deletables chan *Item) int {
+func (b *layeredBucket) deleteFunc(primary string, matches func(key string, item *Item) bool, deletables chan *Item) int {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()

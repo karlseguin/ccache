@@ -63,17 +63,17 @@ func (_ CacheTests) DeletesAFunc() {
 	cache.Set("f", 6, time.Minute)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc(func(key string, item interface{}) bool {
+	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
 		return false
 	})).To.Equal(0)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc(func(key string, item interface{}) bool {
-		return item.(*Item).Value().(int) < 4
+	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
+		return item.Value().(int) < 4
 	})).To.Equal(3)
 	Expect(cache.ItemCount()).To.Equal(3)
 
-	Expect(cache.DeleteFunc(func(key string, item interface{}) bool {
+	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
 		return key == "d"
 	})).To.Equal(1)
 	Expect(cache.ItemCount()).To.Equal(2)

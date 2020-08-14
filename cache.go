@@ -64,7 +64,7 @@ func (c *Cache) DeletePrefix(prefix string) int {
 }
 
 // Deletes all items that the matches func evaluates to true.
-func (c *Cache) DeleteFunc(matches func(key string, item interface{}) bool) int {
+func (c *Cache) DeleteFunc(matches func(key string, item *Item) bool) int {
 	count := 0
 	for _, b := range c.buckets {
 		count += b.deleteFunc(matches, c.deletables)
