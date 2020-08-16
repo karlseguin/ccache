@@ -17,6 +17,10 @@ type setMaxSize struct {
 	size int64
 }
 
+type clear struct {
+	done chan struct{}
+}
+
 type Cache struct {
 	*Configuration
 	list        *list.List
@@ -146,13 +150,11 @@ func (c *Cache) Delete(key string) bool {
 	return false
 }
 
-//this isn't thread safe. It's meant to be called from non-concurrent tests
+// Clears the cache
 func (c *Cache) Clear() {
-	for _, bucket := range c.buckets {
-		bucket.clear()
-	}
-	c.size = 0
-	c.list = list.New()
+	done := make(chan struct{})
+	c.control <- clear{done: done}
+	<-done
 }
 
 // Stops the background worker. Operations performed on the cache after Stop
@@ -231,6 +233,13 @@ func (c *Cache) worker() {
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
+			case clear:
+				for _, bucket := range c.buckets {
+					bucket.clear()
+				}
+				c.size = 0
+				c.list = list.New()
+				msg.done <- struct{}{}
 			}
 		}
 	}

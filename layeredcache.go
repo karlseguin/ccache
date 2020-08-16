@@ -164,13 +164,11 @@ func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item 
 	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
 }
 
-//this isn't thread safe. It's meant to be called from non-concurrent tests
+// Clears the cache
 func (c *LayeredCache) Clear() {
-	for _, bucket := range c.buckets {
-		bucket.clear()
-	}
-	c.size = 0
-	c.list = list.New()
+	done := make(chan struct{})
+	c.control <- clear{done: done}
+	<-done
 }
 
 func (c *LayeredCache) Stop() {
@@ -249,6 +247,13 @@ func (c *LayeredCache) worker() {
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
+			case clear:
+				for _, bucket := range c.buckets {
+					bucket.clear()
+				}
+				c.size = 0
+				c.list = list.New()
+				msg.done <- struct{}{}
 			}
 		}
 	}

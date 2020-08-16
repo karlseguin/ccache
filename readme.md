@@ -100,7 +100,7 @@ cache.Delete("user:4")
 `DeleteFunc` deletes all items that the provded matches func evaluates to true. Returns the number of keys removed.
 
 ### Clear
-`Clear` clears the cache. This method is **not** thread safe. It is meant to be used from tests.
+`Clear` clears the cache. If the cache's gc is running, `Clear` waits for it to finish.
 
 ### Extend
 The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
