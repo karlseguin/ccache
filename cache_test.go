@@ -2,6 +2,7 @@ package ccache
 
 import (
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -81,10 +82,10 @@ func (_ CacheTests) DeletesAFunc() {
 }
 
 func (_ CacheTests) OnDeleteCallbackCalled() {
-	onDeleteFnCalled := false
+	onDeleteFnCalled := int32(0)
 	onDeleteFn := func(item *Item) {
 		if item.key == "spice" {
-			onDeleteFnCalled = true
+			atomic.AddInt32(&onDeleteFnCalled, 1)
 		}
 	}
 
@@ -98,7 +99,7 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 
 	Expect(cache.Get("spice")).To.Equal(nil)
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
-	Expect(onDeleteFnCalled).To.Equal(true)
+	Expect(atomic.LoadInt32(&onDeleteFnCalled)).To.Eql(1)
 }
 
 func (_ CacheTests) FetchesExpiredItems() {

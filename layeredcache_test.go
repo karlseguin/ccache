@@ -2,6 +2,7 @@ package ccache
 
 import (
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -125,12 +126,10 @@ func (_ *LayeredCacheTests) DeletesAFunc() {
 }
 
 func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
-
-	onDeleteFnCalled := false
+	onDeleteFnCalled := int32(0)
 	onDeleteFn := func(item *Item) {
-
 		if item.group == "spice" && item.key == "flow" {
-			onDeleteFnCalled = true
+			atomic.AddInt32(&onDeleteFnCalled, 1)
 		}
 	}
 
@@ -148,7 +147,7 @@ func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
 	Expect(cache.Get("spice", "worm")).To.Equal(nil)
 	Expect(cache.Get("leto", "sister").Value()).To.Equal("ghanima")
 
-	Expect(onDeleteFnCalled).To.Equal(true)
+	Expect(atomic.LoadInt32(&onDeleteFnCalled)).To.Eql(1)
 }
 
 func (_ *LayeredCacheTests) DeletesALayer() {
@@ -263,7 +262,9 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 }
 
 func newLayered() *LayeredCache {
-	return Layered(Configure())
+	c := Layered(Configure())
+	c.Clear()
+	return c
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
