@@ -42,7 +42,7 @@ func New(config *Configuration) *Cache {
 		buckets:       make([]*bucket, config.buckets),
 		control:       make(chan interface{}),
 	}
-	for i := 0; i < int(config.buckets); i++ {
+	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
