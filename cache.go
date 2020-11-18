@@ -85,7 +85,7 @@ func (c *Cache) Get(key string) *Item {
 	if item == nil {
 		return nil
 	}
-	if item.expires > time.Now().UnixNano() {
+	if !item.Expired() {
 		c.promote(item)
 	}
 	return item
