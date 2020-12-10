@@ -206,7 +206,11 @@ func (c *Cache) bucket(key string) *bucket {
 }
 
 func (c *Cache) promote(item *Item) {
-	c.promotables <- item
+	select {
+	case c.promotables <- item:
+	default:
+	}
+		
 }
 
 func (c *Cache) worker() {
