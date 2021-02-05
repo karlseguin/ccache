@@ -80,6 +80,21 @@ func (b *bucket) deleteFunc(matches func(key string, item *Item) bool, deletable
 	return len(items)
 }
 
+func (b *bucket) forEachFunc(matches func(key string, item *Item) bool) bool {
+	lookup := b.lookup
+
+	b.RLock()
+	continueFlag := true
+	for key, item := range lookup {
+		if !matches(key, item) {
+			continueFlag = false
+			break
+		}
+	}
+	defer b.RUnlock()
+	return continueFlag
+}
+
 func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
 	return b.deleteFunc(func(key string, item *Item) bool {
 		return strings.HasPrefix(key, prefix)
