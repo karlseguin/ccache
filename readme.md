@@ -97,7 +97,10 @@ cache.Delete("user:4")
 `DeletePrefix` deletes all keys matching the provided prefix. Returns the number of keys removed.
 
 ### DeleteFunc
-`DeleteFunc` deletes all items that the provded matches func evaluates to true. Returns the number of keys removed.
+`DeleteFunc` deletes all items that the provided matches func evaluates to true. Returns the number of keys removed.
+
+### ForEachFunc
+`ForEachFunc` iterates through all keys and values in the map and passes them to the provided function. Iteration stops if the function returns false. Iteration order is random.
 
 ### Clear
 `Clear` clears the cache. If the cache's gc is running, `Clear` waits for it to finish.

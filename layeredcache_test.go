@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"sort"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -261,12 +262,6 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 	Expect(cache.Get("6", "a").Value()).To.Equal(6)
 }
 
-func newLayered() *LayeredCache {
-	c := Layered(Configure())
-	c.Clear()
-	return c
-}
-
 func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
 	cache := Layered(Configure().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
@@ -329,6 +324,41 @@ func (_ LayeredCacheTests) ReplaceChangesSize() {
 	checkLayeredSize(cache, 5)
 }
 
+func (_ LayeredCacheTests) EachFunc() {
+	cache := Layered(Configure().MaxSize(3).ItemsToPrune(1))
+	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{})
+
+	cache.Set("1", "a", 1, time.Minute)
+	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a"})
+
+	cache.Set("1", "b", 2, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a", "b"})
+
+	cache.Set("1", "c", 3, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a", "b", "c"})
+
+	cache.Set("1", "d", 4, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"b", "c", "d"})
+
+	// iteration is non-deterministic, all we know for sure is "stop" should not be in there
+	cache.Set("1", "stop", 5, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeysLayered(cache, "1")).Not.To.Contain("stop")
+
+	cache.Set("1", "e", 6, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeysLayered(cache, "1")).Not.To.Contain("stop")
+}
+
+func newLayered() *LayeredCache {
+	c := Layered(Configure())
+	c.Clear()
+	return c
+}
+
 func checkLayeredSize(cache *LayeredCache, sz int64) {
 	cache.Stop()
 	Expect(cache.size).To.Equal(sz)
@@ -339,4 +369,17 @@ func gcLayeredCache(cache *LayeredCache) {
 	cache.Stop()
 	cache.gc()
 	cache.restart()
+}
+
+func forEachKeysLayered(cache *LayeredCache, primary string) []string {
+	keys := make([]string, 0, 10)
+	cache.ForEachFunc(primary, func(key string, i *Item) bool {
+		if key == "stop" {
+			return false
+		}
+		keys = append(keys, key)
+		return true
+	})
+	sort.Strings(keys)
+	return keys
 }

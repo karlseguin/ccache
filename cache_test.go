@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"sort"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -273,6 +274,34 @@ func (_ CacheTests) ResizeOnTheFly() {
 	Expect(cache.Get("6").Value()).To.Equal(6)
 }
 
+func (_ CacheTests) ForEachFunc() {
+	cache := New(Configure().MaxSize(3).ItemsToPrune(1))
+	Expect(forEachKeys(cache)).To.Equal([]string{})
+
+	cache.Set("1", 1, time.Minute)
+	Expect(forEachKeys(cache)).To.Equal([]string{"1"})
+
+	cache.Set("2", 2, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeys(cache)).To.Equal([]string{"1", "2"})
+
+	cache.Set("3", 3, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeys(cache)).To.Equal([]string{"1", "2", "3"})
+
+	cache.Set("4", 4, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeys(cache)).To.Equal([]string{"2", "3", "4"})
+
+	cache.Set("stop", 5, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeys(cache)).Not.To.Contain("stop")
+
+	cache.Set("6", 6, time.Minute)
+	time.Sleep(time.Millisecond * 10)
+	Expect(forEachKeys(cache)).Not.To.Contain("stop")
+}
+
 type SizedItem struct {
 	id int
 	s  int64
@@ -292,4 +321,17 @@ func gcCache(cache *Cache) {
 	cache.Stop()
 	cache.gc()
 	cache.restart()
+}
+
+func forEachKeys(cache *Cache) []string {
+	keys := make([]string, 0, 10)
+	cache.ForEachFunc(func(key string, i *Item) bool {
+		if key == "stop" {
+			return false
+		}
+		keys = append(keys, key)
+		return true
+	})
+	sort.Strings(keys)
+	return keys
 }

@@ -17,6 +17,18 @@ func (b *bucket) itemCount() int {
 	return len(b.lookup)
 }
 
+func (b *bucket) forEachFunc(matches func(key string, item *Item) bool) bool {
+	lookup := b.lookup
+	b.RLock()
+	defer b.RUnlock()
+	for key, item := range lookup {
+		if !matches(key, item) {
+			return false
+		}
+	}
+	return true
+}
+
 func (b *bucket) get(key string) *Item {
 	b.RLock()
 	defer b.RUnlock()

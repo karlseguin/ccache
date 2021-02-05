@@ -73,6 +73,10 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
+func (c *LayeredCache) ForEachFunc(primary string, matches func(key string, item *Item) bool) {
+	c.bucket(primary).forEachFunc(primary, matches)
+}
+
 // Get the secondary cache for a given primary key. This operation will
 // never return nil. In the case where the primary key does not exist, a
 // new, underlying, empty bucket will be created and returned.
