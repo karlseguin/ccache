@@ -235,8 +235,9 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
+	time.Sleep(time.Millisecond * 20)
 	cache.SetMaxSize(3)
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 20)
 	Expect(cache.GetDropped()).To.Equal(2)
 	Expect(cache.Get("0", "a")).To.Equal(nil)
 	Expect(cache.Get("1", "a")).To.Equal(nil)
@@ -245,7 +246,7 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 	Expect(cache.Get("4", "a").Value()).To.Equal(4)
 
 	cache.Set("5", "a", 5, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	time.Sleep(time.Millisecond * 10)
 	Expect(cache.GetDropped()).To.Equal(1)
 	Expect(cache.Get("2", "a")).To.Equal(nil)
 	Expect(cache.Get("3", "a").Value()).To.Equal(3)

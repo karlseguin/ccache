@@ -286,7 +286,13 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 func (c *LayeredCache) gc() int {
 	element := c.list.Back()
 	dropped := 0
-	for i := 0; i < c.itemsToPrune; i++ {
+	itemsToPrune := int64(c.itemsToPrune)
+
+	if min := c.size - c.maxSize; min > itemsToPrune {
+		itemsToPrune = min
+	}
+
+	for i := int64(0); i < itemsToPrune; i++ {
 		if element == nil {
 			return dropped
 		}
