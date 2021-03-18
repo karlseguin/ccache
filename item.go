@@ -2,6 +2,7 @@ package ccache
 
 import (
 	"container/list"
+	"fmt"
 	"sync/atomic"
 	"time"
 )
@@ -104,4 +105,14 @@ func (i *Item) Expires() time.Time {
 
 func (i *Item) Extend(duration time.Duration) {
 	atomic.StoreInt64(&i.expires, time.Now().Add(duration).UnixNano())
+}
+
+// String returns a string representation of the Item. This includes the default string
+// representation of its Value(), as implemented by fmt.Sprintf with "%v", but the exact
+// format of the string should not be relied on; it is provided only for debugging
+// purposes, and because otherwise including an Item in a call to fmt.Printf or
+// fmt.Sprintf expression could cause fields of the Item to be read in a non-thread-safe
+// way.
+func (i *Item) String() string {
+	return fmt.Sprintf("Item(%v)", i.value)
 }
