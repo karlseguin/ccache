@@ -136,6 +136,9 @@ func (c *Cache) Replace(key string, value interface{}) bool {
 // Attempts to get the value from the cache and calles fetch on a miss (missing
 // or stale item). If fetch returns an error, no value is cached and the error
 // is returned back to the caller.
+// Note that Fetch merely calls the public Get and Set functions. If you want
+// a different Fetch behavior, such as thundering herd protection or returning
+// expired items, implement it in your application.
 func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
 	item := c.Get(key)
 	if item != nil && !item.Expired() {

@@ -86,6 +86,8 @@ item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error)
 })
 ```
 
+`Fetch` doesn't do anything fancy: it merely uses the public `Get` and `Set` functions. If you want more advanced behavior, such as using a singleflight to protect against thundering herd, support a callback that accepts the key, or returning expired items, you should implement that in your application. 
+
 ### Delete
 `Delete` expects the key to delete. It's ok to call `Delete` on a non-existent key:
 
