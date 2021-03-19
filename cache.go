@@ -15,11 +15,22 @@ type getDropped struct {
 }
 type setMaxSize struct {
 	size int64
+	done chan struct{}
 }
 
 type clear struct {
 	done chan struct{}
 }
+
+type gc struct {
+	done chan struct{}
+}
+
+type getSize struct {
+	size chan int64
+}
+
+type stop struct{}
 
 type Cache struct {
 	*Configuration
@@ -40,14 +51,16 @@ func New(config *Configuration) *Cache {
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
-		control:       make(chan interface{}),
+		deletables:    make(chan *Item, config.deleteBuffer),
+		promotables:   make(chan *Item, config.promoteBuffer),
+		control:       make(chan interface{}, config.controlBuffer),
 	}
 	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
 	}
-	c.restart()
+	go c.worker()
 	return c
 }
 
@@ -161,39 +174,75 @@ func (c *Cache) Delete(key string) bool {
 	return false
 }
 
-// Clears the cache
+// Clears the cache.
+// This is a control command.
 func (c *Cache) Clear() {
 	done := make(chan struct{})
-	c.control <- clear{done: done}
-	<-done
+	select {
+	case c.control <- clear{done: done}:
+		<-done
+	default:
+	}
 }
 
-// Stops the background worker. Operations performed on the cache after Stop
-// is called are likely to panic
+// Stops the background worker.
+// This is a control command.
 func (c *Cache) Stop() {
-	close(c.promotables)
-	<-c.control
+	go func() {
+		time.Sleep(c.stopDelay)
+		select {
+		case c.control <- stop{}:
+		default:
+		}
+	}()
 }
 
 // Gets the number of items removed from the cache due to memory pressure since
-// the last time GetDropped was called
+// the last time GetDropped was called.
+// This is a control command.
 func (c *Cache) GetDropped() int {
 	res := make(chan int)
-	c.control <- getDropped{res: res}
-	return <-res
+	select {
+	case c.control <- getDropped{res: res}:
+		return <-res
+	default:
+		return 0
+	}
 }
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
 // is smaller than the cached size
+// This is a control command.
 func (c *Cache) SetMaxSize(size int64) {
-	c.control <- setMaxSize{size}
+	done := make(chan struct{})
+	select {
+	case c.control <- setMaxSize{size: size, done: done}:
+		<-done
+	default:
+	}
 }
 
-func (c *Cache) restart() {
-	c.deletables = make(chan *Item, c.deleteBuffer)
-	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.control = make(chan interface{})
-	go c.worker()
+// Forces a GC
+// This is a control command.
+func (c *Cache) GC() {
+	done := make(chan struct{})
+	select {
+	case c.control <- gc{done: done}:
+		<-done
+	default:
+	}
+}
+
+// Gets the size of the cache
+// This is a control command
+func (c *Cache) Size() int64 {
+	size := make(chan int64)
+	select {
+	case c.control <- getSize{size: size}:
+		return <-size
+	default:
+		return 0
+	}
 }
 
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {
@@ -221,18 +270,13 @@ func (c *Cache) promote(item *Item) {
 	case c.promotables <- item:
 	default:
 	}
-
 }
 
 func (c *Cache) worker() {
-	defer close(c.control)
 	dropped := 0
 	for {
 		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				goto drain
-			}
+		case item := <-c.promotables:
 			if c.doPromote(item) && c.size > c.maxSize {
 				dropped += c.gc()
 			}
@@ -248,6 +292,7 @@ func (c *Cache) worker() {
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
+				msg.done <- struct{}{}
 			case clear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
@@ -255,6 +300,13 @@ func (c *Cache) worker() {
 				c.size = 0
 				c.list = list.New()
 				msg.done <- struct{}{}
+			case gc:
+				dropped += c.gc()
+				msg.done <- struct{}{}
+			case getSize:
+				msg.size <- c.size
+			case stop:
+				goto drain
 			}
 		}
 	}
@@ -265,7 +317,6 @@ drain:
 		case item := <-c.deletables:
 			c.doDelete(item)
 		default:
-			close(c.deletables)
 			return
 		}
 	}

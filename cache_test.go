@@ -82,7 +82,6 @@ func (_ CacheTests) DeletesAFunc() {
 		return key == "d"
 	})).To.Equal(1)
 	Expect(cache.ItemCount()).To.Equal(2)
-
 }
 
 func (_ CacheTests) OnDeleteCallbackCalled() {
@@ -94,6 +93,7 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 	}
 
 	cache := New(Configure().OnDelete(onDeleteFn))
+	defer cache.Stop()
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
 
@@ -108,6 +108,7 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 
 func (_ CacheTests) FetchesExpiredItems() {
 	cache := New(Configure())
+	defer cache.Stop()
 	fn := func() (interface{}, error) { return "moo-moo", nil }
 
 	cache.Set("beef", "moo", time.Second*-1)
@@ -119,12 +120,13 @@ func (_ CacheTests) FetchesExpiredItems() {
 
 func (_ CacheTests) GCsTheOldestItems() {
 	cache := New(Configure().ItemsToPrune(10))
+	defer cache.Stop()
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
 	//let the items get promoted (and added to our list)
 	time.Sleep(time.Millisecond * 10)
-	gcCache(cache)
+	cache.GC()
 	Expect(cache.Get("9")).To.Equal(nil)
 	Expect(cache.Get("10").Value()).To.Equal(10)
 	Expect(cache.ItemCount()).To.Equal(490)
@@ -132,13 +134,14 @@ func (_ CacheTests) GCsTheOldestItems() {
 
 func (_ CacheTests) PromotedItemsDontGetPruned() {
 	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
+	defer cache.Stop()
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
 	time.Sleep(time.Millisecond * 10) //run the worker once to init the list
 	cache.Get("9")
 	time.Sleep(time.Millisecond * 10)
-	gcCache(cache)
+	cache.GC()
 	Expect(cache.Get("9").Value()).To.Equal(9)
 	Expect(cache.Get("10")).To.Equal(nil)
 	Expect(cache.Get("11").Value()).To.Equal(11)
@@ -146,18 +149,19 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 
 func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := New(Configure().ItemsToPrune(11).Track())
+	defer cache.Stop()
 	item0 := cache.TrackingSet("0", 0, time.Minute)
 	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
 	item1 := cache.TrackingGet("1")
 	time.Sleep(time.Millisecond * 10)
-	gcCache(cache)
+	cache.GC()
 	Expect(cache.Get("0").Value()).To.Equal(0)
 	Expect(cache.Get("1").Value()).To.Equal(1)
 	item0.Release()
 	item1.Release()
-	gcCache(cache)
+	cache.GC()
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
 }
@@ -171,6 +175,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 	}
 
 	cache := New(Configure().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
+	defer cache.Stop()
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -184,6 +189,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 
 func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 	cache := New(Configure().MaxSize(9).ItemsToPrune(2))
+	defer cache.Stop()
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
@@ -199,59 +205,63 @@ func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 
 func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	cache := New(Configure())
+	defer cache.Stop()
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 5)
+	Expect(cache.Size()).To.Eql(5)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 5)
+	Expect(cache.Size()).To.Eql(5)
 	cache.Set("b", &SizedItem{0, 4}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 6)
+	Expect(cache.Size()).To.Eql(6)
 	cache.Set("b", &SizedItem{0, 2}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 4)
+	Expect(cache.Size()).To.Eql(4)
 	cache.Delete("b")
 	time.Sleep(time.Millisecond * 100)
-	checkSize(cache, 2)
+	Expect(cache.Size()).To.Eql(2)
 }
 
 func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache := New(Configure())
+	defer cache.Stop()
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("4", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 6)
+	Expect(cache.Size()).To.Eql(6)
 }
 
 func (_ CacheTests) ReplaceChangesSize() {
 	cache := New(Configure())
+	defer cache.Stop()
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 
 	cache.Replace("2", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 4)
+	Expect(cache.Size()).To.Eql(4)
 
 	cache.Replace("2", &SizedItem{1, 1})
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 3)
+	Expect(cache.Size()).To.Eql(3)
 
 	cache.Replace("2", &SizedItem{1, 3})
 	time.Sleep(time.Millisecond * 5)
-	checkSize(cache, 5)
+	Expect(cache.Size()).To.Eql(5)
 }
 
 func (_ CacheTests) ResizeOnTheFly() {
-	cache := New(Configure().MaxSize(9).ItemsToPrune(1))
+	cache := New(Configure().MaxSize(9).ItemsToPrune(1).StopDelay(time.Millisecond))
+	defer cache.Stop()
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
-	cache.SetMaxSize(3)
 	time.Sleep(time.Millisecond * 10)
+	cache.SetMaxSize(3)
 	Expect(cache.GetDropped()).To.Equal(2)
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
@@ -279,6 +289,7 @@ func (_ CacheTests) ResizeOnTheFly() {
 
 func (_ CacheTests) ForEachFunc() {
 	cache := New(Configure().MaxSize(3).ItemsToPrune(1))
+	defer cache.Stop()
 	Expect(forEachKeys(cache)).To.Equal([]string{})
 
 	cache.Set("1", 1, time.Minute)
@@ -305,6 +316,12 @@ func (_ CacheTests) ForEachFunc() {
 	Expect(forEachKeys(cache)).Not.To.Contain("stop")
 }
 
+func (_ CacheTests) DoubleStop() {
+	cache := New(Configure())
+	cache.Stop()
+	cache.Stop()
+}
+
 type SizedItem struct {
 	id int
 	s  int64
@@ -312,18 +329,6 @@ type SizedItem struct {
 
 func (s *SizedItem) Size() int64 {
 	return s.s
-}
-
-func checkSize(cache *Cache, sz int64) {
-	cache.Stop()
-	Expect(cache.size).To.Equal(sz)
-	cache.restart()
-}
-
-func gcCache(cache *Cache) {
-	cache.Stop()
-	cache.gc()
-	cache.restart()
 }
 
 func forEachKeys(cache *Cache) []string {

@@ -1,14 +1,18 @@
 package ccache
 
+import "time"
+
 type Configuration struct {
 	maxSize        int64
 	buckets        int
 	itemsToPrune   int
 	deleteBuffer   int
 	promoteBuffer  int
+	controlBuffer  int
 	getsPerPromote int32
 	tracking       bool
 	onDelete       func(item *Item)
+	stopDelay      time.Duration
 }
 
 // Creates a configuration object with sensible defaults
@@ -19,10 +23,12 @@ func Configure() *Configuration {
 		buckets:        16,
 		itemsToPrune:   500,
 		deleteBuffer:   1024,
-		getsPerPromote: 3,
 		promoteBuffer:  1024,
+		controlBuffer:  5,
+		getsPerPromote: 3,
 		maxSize:        5000,
 		tracking:       false,
+		stopDelay:      time.Second,
 	}
 }
 
@@ -66,6 +72,13 @@ func (c *Configuration) DeleteBuffer(size uint32) *Configuration {
 	return c
 }
 
+// The size of the queue for control commands. Control commands are sent to the
+// worker goroutine to avoid the need to for locking in the hot-path.
+func (c *Configuration) ControlBuffer(size uint32) *Configuration {
+	c.controlBuffer = int(size)
+	return c
+}
+
 // Give a large cache with a high read / write ratio, it's usually unnecessary
 // to promote an item on every Get. GetsPerPromote specifies the number of Gets
 // a key must have before being promoted
@@ -99,5 +112,13 @@ func (c *Configuration) Track() *Configuration {
 // cached object that require some kind of tear-down.
 func (c *Configuration) OnDelete(callback func(item *Item)) *Configuration {
 	c.onDelete = callback
+	return c
+}
+
+// When Stop is called, waits for delay before actually stopping the cache. This
+// helps protect against problems with concurrently running operations when Stop
+// is called.
+func (c *Configuration) StopDelay(delay time.Duration) *Configuration {
+	c.stopDelay = delay
 	return c
 }

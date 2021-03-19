@@ -39,14 +39,15 @@ func Layered(config *Configuration) *LayeredCache {
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
-		control:       make(chan interface{}),
+		promotables:   make(chan *Item, config.promoteBuffer),
+		control:       make(chan interface{}, config.controlBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
 			buckets: make(map[string]*bucket),
 		}
 	}
-	c.restart()
+	go c.worker()
 	return c
 }
 
@@ -174,33 +175,65 @@ func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item 
 // Clears the cache
 func (c *LayeredCache) Clear() {
 	done := make(chan struct{})
-	c.control <- clear{done: done}
-	<-done
+	select {
+	case c.control <- clear{done: done}:
+		<-done
+	default:
+	}
 }
 
 func (c *LayeredCache) Stop() {
-	close(c.promotables)
-	<-c.control
+	go func() {
+		time.Sleep(c.stopDelay)
+		select {
+		case c.control <- stop{}:
+		default:
+		}
+	}()
 }
 
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
 func (c *LayeredCache) GetDropped() int {
 	res := make(chan int)
-	c.control <- getDropped{res: res}
-	return <-res
+	select {
+	case c.control <- getDropped{res: res}:
+		return <-res
+	default:
+		return 0
+	}
 }
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
 // is smaller than the cached size
 func (c *LayeredCache) SetMaxSize(size int64) {
-	c.control <- setMaxSize{size}
+	done := make(chan struct{})
+	select {
+	case c.control <- setMaxSize{size: size, done: done}:
+		<-done
+	default:
+	}
 }
 
-func (c *LayeredCache) restart() {
-	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.control = make(chan interface{})
-	go c.worker()
+// Forces a GC
+func (c *LayeredCache) GC() {
+	done := make(chan struct{})
+	select {
+	case c.control <- gc{done: done}:
+		<-done
+	default:
+	}
+}
+
+// Gets the size of the cache
+func (c *LayeredCache) Size() int64 {
+	size := make(chan int64)
+	select {
+	case c.control <- getSize{size: size}:
+		return <-size
+	default:
+		return 0
+	}
 }
 
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration, track bool) *Item {
@@ -227,10 +260,7 @@ func (c *LayeredCache) worker() {
 	dropped := 0
 	for {
 		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				return
-			}
+		case item := <-c.promotables:
 			if c.doPromote(item) && c.size > c.maxSize {
 				dropped += c.gc()
 			}
@@ -254,6 +284,7 @@ func (c *LayeredCache) worker() {
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
+				msg.done <- struct{}{}
 			case clear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
@@ -261,6 +292,13 @@ func (c *LayeredCache) worker() {
 				c.size = 0
 				c.list = list.New()
 				msg.done <- struct{}{}
+			case gc:
+				dropped += c.gc()
+				msg.done <- struct{}{}
+			case getSize:
+				msg.size <- c.size
+			case stop:
+				return
 			}
 		}
 	}
