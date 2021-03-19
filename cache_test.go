@@ -18,7 +18,6 @@ func Test_Cache(t *testing.T) {
 
 func (_ CacheTests) DeletesAValue() {
 	cache := New(Configure())
-	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("spice", "flow", time.Minute)
@@ -33,7 +32,6 @@ func (_ CacheTests) DeletesAValue() {
 
 func (_ CacheTests) DeletesAPrefix() {
 	cache := New(Configure())
-	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("aaa", "1", time.Minute)
@@ -57,7 +55,6 @@ func (_ CacheTests) DeletesAPrefix() {
 
 func (_ CacheTests) DeletesAFunc() {
 	cache := New(Configure())
-	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("a", 1, time.Minute)
@@ -94,7 +91,6 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 	}
 
 	cache := New(Configure().OnDelete(onDeleteFn))
-	defer cache.Stop()
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
 
@@ -110,7 +106,6 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 
 func (_ CacheTests) FetchesExpiredItems() {
 	cache := New(Configure())
-	defer cache.Stop()
 	fn := func() (interface{}, error) { return "moo-moo", nil }
 
 	cache.Set("beef", "moo", time.Second*-1)
@@ -122,7 +117,6 @@ func (_ CacheTests) FetchesExpiredItems() {
 
 func (_ CacheTests) GCsTheOldestItems() {
 	cache := New(Configure().ItemsToPrune(10))
-	defer cache.Stop()
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -135,7 +129,6 @@ func (_ CacheTests) GCsTheOldestItems() {
 
 func (_ CacheTests) PromotedItemsDontGetPruned() {
 	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
-	defer cache.Stop()
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
