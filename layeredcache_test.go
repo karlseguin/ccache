@@ -297,20 +297,20 @@ func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 	cache.Set("pri", "b", &SizedItem{0, 4}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(6)
+	Expect(cache.GetSize()).To.Eql(6)
 	cache.Set("pri", "b", &SizedItem{0, 2}, time.Minute)
 	cache.Set("sec", "b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(7)
+	Expect(cache.GetSize()).To.Eql(7)
 	cache.Delete("pri", "b")
 	time.Sleep(time.Millisecond * 10)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 }
 
 func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
@@ -321,7 +321,7 @@ func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("sec", "3", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(6)
+	Expect(cache.GetSize()).To.Eql(6)
 }
 
 func (_ LayeredCacheTests) ReplaceChangesSize() {
@@ -332,15 +332,15 @@ func (_ LayeredCacheTests) ReplaceChangesSize() {
 
 	cache.Replace("pri", "2", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(4)
+	Expect(cache.GetSize()).To.Eql(4)
 
 	cache.Replace("pri", "2", &SizedItem{1, 1})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(3)
+	Expect(cache.GetSize()).To.Eql(3)
 
 	cache.Replace("pri", "2", &SizedItem{1, 3})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 }
 
 func (_ LayeredCacheTests) EachFunc() {

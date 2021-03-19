@@ -209,19 +209,19 @@ func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 	cache.Set("b", &SizedItem{0, 4}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(6)
+	Expect(cache.GetSize()).To.Eql(6)
 	cache.Set("b", &SizedItem{0, 2}, time.Minute)
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(4)
+	Expect(cache.GetSize()).To.Eql(4)
 	cache.Delete("b")
 	time.Sleep(time.Millisecond * 100)
-	Expect(cache.Size()).To.Eql(2)
+	Expect(cache.GetSize()).To.Eql(2)
 }
 
 func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
@@ -232,7 +232,7 @@ func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("4", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(6)
+	Expect(cache.GetSize()).To.Eql(6)
 }
 
 func (_ CacheTests) ReplaceChangesSize() {
@@ -243,15 +243,15 @@ func (_ CacheTests) ReplaceChangesSize() {
 
 	cache.Replace("2", &SizedItem{1, 2})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(4)
+	Expect(cache.GetSize()).To.Eql(4)
 
 	cache.Replace("2", &SizedItem{1, 1})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(3)
+	Expect(cache.GetSize()).To.Eql(3)
 
 	cache.Replace("2", &SizedItem{1, 3})
 	time.Sleep(time.Millisecond * 5)
-	Expect(cache.Size()).To.Eql(5)
+	Expect(cache.GetSize()).To.Eql(5)
 }
 
 func (_ CacheTests) ResizeOnTheFly() {

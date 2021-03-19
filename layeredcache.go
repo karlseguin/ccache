@@ -220,7 +220,7 @@ func (c *LayeredCache) GC() {
 }
 
 // Gets the size of the cache
-func (c *LayeredCache) Size() int64 {
+func (c *LayeredCache) GetSize() int64 {
 	size := make(chan int64)
 	c.control <- getSize{size: size}
 	return <-size

@@ -229,7 +229,7 @@ func (c *Cache) GC() {
 
 // Gets the size of the cache
 // This is a control command
-func (c *Cache) Size() int64 {
+func (c *Cache) GetSize() int64 {
 	size := make(chan int64)
 	c.control <- getSize{size: size}
 	return <-size
