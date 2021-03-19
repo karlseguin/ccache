@@ -175,11 +175,8 @@ func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item 
 // Clears the cache
 func (c *LayeredCache) Clear() {
 	done := make(chan struct{})
-	select {
-	case c.control <- clear{done: done}:
-		<-done
-	default:
-	}
+	c.control <- clear{done: done}
+	<-done
 }
 
 func (c *LayeredCache) Stop() {
@@ -208,11 +205,8 @@ func (c *LayeredCache) GetDropped() int {
 // is smaller than the cached size
 func (c *LayeredCache) SetMaxSize(size int64) {
 	done := make(chan struct{})
-	select {
-	case c.control <- setMaxSize{size: size, done: done}:
-		<-done
-	default:
-	}
+	c.control <- setMaxSize{size: size, done: done}
+	<-done
 }
 
 // Forces a GC
@@ -228,12 +222,8 @@ func (c *LayeredCache) GC() {
 // Gets the size of the cache
 func (c *LayeredCache) Size() int64 {
 	size := make(chan int64)
-	select {
-	case c.control <- getSize{size: size}:
-		return <-size
-	default:
-		return 0
-	}
+	c.control <- getSize{size: size}
+	return <-size
 }
 
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration, track bool) *Item {

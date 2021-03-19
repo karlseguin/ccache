@@ -178,11 +178,8 @@ func (c *Cache) Delete(key string) bool {
 // This is a control command.
 func (c *Cache) Clear() {
 	done := make(chan struct{})
-	select {
-	case c.control <- clear{done: done}:
-		<-done
-	default:
-	}
+	c.control <- clear{done: done}
+	<-done
 }
 
 // Stops the background worker.
@@ -215,11 +212,8 @@ func (c *Cache) GetDropped() int {
 // This is a control command.
 func (c *Cache) SetMaxSize(size int64) {
 	done := make(chan struct{})
-	select {
-	case c.control <- setMaxSize{size: size, done: done}:
-		<-done
-	default:
-	}
+	c.control <- setMaxSize{size: size, done: done}
+	<-done
 }
 
 // Forces a GC
@@ -237,12 +231,8 @@ func (c *Cache) GC() {
 // This is a control command
 func (c *Cache) Size() int64 {
 	size := make(chan int64)
-	select {
-	case c.control <- getSize{size: size}:
-		return <-size
-	default:
-		return 0
-	}
+	c.control <- getSize{size: size}
+	return <-size
 }
 
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {

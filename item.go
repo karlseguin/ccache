@@ -39,10 +39,6 @@ func (i *nilItem) Expires() time.Time {
 func (i *nilItem) Extend(duration time.Duration) {
 }
 
-func (i *nilItem) String() string {
-	return "nil"
-}
-
 var NilTracked = new(nilItem)
 
 type Item struct {
@@ -108,8 +104,4 @@ func (i *Item) Expires() time.Time {
 
 func (i *Item) Extend(duration time.Duration) {
 	atomic.StoreInt64(&i.expires, time.Now().Add(duration).UnixNano())
-}
-
-func (i *Item) String() string {
-	return i.key
 }
