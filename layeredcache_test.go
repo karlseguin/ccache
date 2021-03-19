@@ -235,6 +235,8 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
+	cache.SyncUpdates()
+
 	cache.SetMaxSize(3)
 	cache.SyncUpdates()
 	Expect(cache.GetDropped()).To.Equal(2)

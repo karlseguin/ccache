@@ -131,6 +131,9 @@ func (c *LayeredCache) Replace(primary, secondary string, value interface{}) boo
 // Attempts to get the value from the cache and calles fetch on a miss.
 // If fetch returns an error, no value is cached and the error is returned back
 // to the caller.
+// Note that Fetch merely calls the public Get and Set functions. If you want
+// a different Fetch behavior, such as thundering herd protection or returning
+// expired items, implement it in your application.
 func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
 	item := c.Get(primary, secondary)
 	if item != nil {
@@ -297,7 +300,13 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 func (c *LayeredCache) gc() int {
 	element := c.list.Back()
 	dropped := 0
-	for i := 0; i < c.itemsToPrune; i++ {
+	itemsToPrune := int64(c.itemsToPrune)
+
+	if min := c.size - c.maxSize; min > itemsToPrune {
+		itemsToPrune = min
+	}
+
+	for i := int64(0); i < itemsToPrune; i++ {
 		if element == nil {
 			return dropped
 		}

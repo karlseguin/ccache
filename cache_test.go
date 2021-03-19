@@ -18,6 +18,7 @@ func Test_Cache(t *testing.T) {
 
 func (_ CacheTests) DeletesAValue() {
 	cache := New(Configure())
+	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("spice", "flow", time.Minute)
@@ -32,6 +33,7 @@ func (_ CacheTests) DeletesAValue() {
 
 func (_ CacheTests) DeletesAPrefix() {
 	cache := New(Configure())
+	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("aaa", "1", time.Minute)
@@ -55,6 +57,7 @@ func (_ CacheTests) DeletesAPrefix() {
 
 func (_ CacheTests) DeletesAFunc() {
 	cache := New(Configure())
+	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("a", 1, time.Minute)
