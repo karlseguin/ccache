@@ -10,13 +10,13 @@ import (
 
 type LayeredCache struct {
 	*Configuration
+	control
 	list        *list.List
 	buckets     []*layeredBucket
 	bucketMask  uint32
 	size        int64
 	deletables  chan *Item
 	promotables chan *Item
-	control     chan interface{}
 }
 
 // Create a new layered cache with the specified configuration.
@@ -34,19 +34,20 @@ type LayeredCache struct {
 // See ccache.Configure() for creating a configuration
 func Layered(config *Configuration) *LayeredCache {
 	c := &LayeredCache{
+		control:       newControl(),
 		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket, config.buckets),
 		deletables:    make(chan *Item, config.deleteBuffer),
-		control:       make(chan interface{}),
+		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket{
 			buckets: make(map[string]*bucket),
 		}
 	}
-	c.restart()
+	go c.worker()
 	return c
 }
 
@@ -171,42 +172,6 @@ func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item 
 	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
 }
 
-// Clears the cache
-func (c *LayeredCache) Clear() {
-	done := make(chan struct{})
-	c.control <- clear{done: done}
-	<-done
-}
-
-func (c *LayeredCache) Stop() {
-	close(c.promotables)
-	<-c.control
-}
-
-// Gets the number of items removed from the cache due to memory pressure since
-// the last time GetDropped was called
-func (c *LayeredCache) GetDropped() int {
-	return doGetDropped(c.control)
-}
-
-// SyncUpdates waits until the cache has finished asynchronous state updates for any operations
-// that were done by the current goroutine up to now. See Cache.SyncUpdates for details.
-func (c *LayeredCache) SyncUpdates() {
-	doSyncUpdates(c.control)
-}
-
-// Sets a new max size. That can result in a GC being run if the new maxium size
-// is smaller than the cached size
-func (c *LayeredCache) SetMaxSize(size int64) {
-	c.control <- setMaxSize{size}
-}
-
-func (c *LayeredCache) restart() {
-	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.control = make(chan interface{})
-	go c.worker()
-}
-
 func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration, track bool) *Item {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration, track)
 	if existing != nil {
@@ -227,13 +192,20 @@ func (c *LayeredCache) promote(item *Item) {
 }
 
 func (c *LayeredCache) worker() {
-	defer close(c.control)
 	dropped := 0
+	cc := c.control
+
+	stop := time.NewTimer(0)
+	if !stop.Stop() {
+		<-stop.C
+	}
+
 	promoteItem := func(item *Item) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
 		}
 	}
+
 	deleteItem := func(item *Item) {
 		if item.element == nil {
 			atomic.StoreInt32(&item.promotions, -2)
@@ -247,33 +219,37 @@ func (c *LayeredCache) worker() {
 	}
 	for {
 		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				return
-			}
+		case item := <-c.promotables:
 			promoteItem(item)
 		case item := <-c.deletables:
 			deleteItem(item)
-		case control := <-c.control:
+		case control := <-cc:
 			switch msg := control.(type) {
-			case getDropped:
+			case controlStop:
+				return
+			case controlGetDropped:
 				msg.res <- dropped
 				dropped = 0
-			case setMaxSize:
+			case controlSetMaxSize:
 				c.maxSize = msg.size
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
-			case clear:
+				msg.done <- struct{}{}
+			case controlClear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
 				}
 				c.size = 0
 				c.list = list.New()
 				msg.done <- struct{}{}
-			case syncWorker:
-				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,
-					c.deletables, deleteItem)
+			case controlGetSize:
+				msg.res <- c.size
+			case controlGC:
+				dropped += c.gc()
+				msg.done <- struct{}{}
+			case controlSyncUpdates:
+				doAllPendingPromotesAndDeletes(c.promotables, promoteItem, c.deletables, deleteItem)
 				msg.done <- struct{}{}
 			}
 		}

@@ -8,33 +8,15 @@ import (
 	"time"
 )
 
-// The cache has a generic 'control' channel that is used to send
-// messages to the worker. These are the messages that can be sent to it
-type getDropped struct {
-	res chan int
-}
-
-type setMaxSize struct {
-	size int64
-}
-
-type clear struct {
-	done chan struct{}
-}
-
-type syncWorker struct {
-	done chan struct{}
-}
-
 type Cache struct {
 	*Configuration
+	control
 	list        *list.List
 	size        int64
 	buckets     []*bucket
 	bucketMask  uint32
 	deletables  chan *Item
 	promotables chan *Item
-	control     chan interface{}
 }
 
 // Create a new cache with the specified configuration
@@ -43,16 +25,19 @@ func New(config *Configuration) *Cache {
 	c := &Cache{
 		list:          list.New(),
 		Configuration: config,
+		control:       newControl(),
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket, config.buckets),
-		control:       make(chan interface{}),
+		deletables:    make(chan *Item, config.deleteBuffer),
+		promotables:   make(chan *Item, config.promoteBuffer),
 	}
 	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &bucket{
 			lookup: make(map[string]*Item),
 		}
 	}
-	c.restart()
+
+	go c.worker()
 	return c
 }
 
@@ -166,68 +151,6 @@ func (c *Cache) Delete(key string) bool {
 	return false
 }
 
-// Clears the cache
-func (c *Cache) Clear() {
-	done := make(chan struct{})
-	c.control <- clear{done: done}
-	<-done
-}
-
-// Stops the background worker. Operations performed on the cache after Stop
-// is called are likely to panic
-func (c *Cache) Stop() {
-	close(c.promotables)
-	<-c.control
-}
-
-// Gets the number of items removed from the cache due to memory pressure since
-// the last time GetDropped was called
-func (c *Cache) GetDropped() int {
-	return doGetDropped(c.control)
-}
-
-func doGetDropped(controlCh chan<- interface{}) int {
-	res := make(chan int)
-	controlCh <- getDropped{res: res}
-	return <-res
-}
-
-// SyncUpdates waits until the cache has finished asynchronous state updates for any operations
-// that were done by the current goroutine up to now.
-//
-// For efficiency, the cache's implementation of LRU behavior is partly managed by a worker
-// goroutine that updates its internal data structures asynchronously. This means that the
-// cache's state in terms of (for instance) eviction of LRU items is only eventually consistent;
-// there is no guarantee that it happens before a Get or Set call has returned. Most of the time
-// application code will not care about this, but especially in a test scenario you may want to
-// be able to know when the worker has caught up.
-//
-// This applies only to cache methods that were previously called by the same goroutine that is
-// now calling SyncUpdates. If other goroutines are using the cache at the same time, there is
-// no way to know whether any of them still have pending state updates when SyncUpdates returns.
-func (c *Cache) SyncUpdates() {
-	doSyncUpdates(c.control)
-}
-
-func doSyncUpdates(controlCh chan<- interface{}) {
-	done := make(chan struct{})
-	controlCh <- syncWorker{done: done}
-	<-done
-}
-
-// Sets a new max size. That can result in a GC being run if the new maxium size
-// is smaller than the cached size
-func (c *Cache) SetMaxSize(size int64) {
-	c.control <- setMaxSize{size}
-}
-
-func (c *Cache) restart() {
-	c.deletables = make(chan *Item, c.deleteBuffer)
-	c.promotables = make(chan *Item, c.promoteBuffer)
-	c.control = make(chan interface{})
-	go c.worker()
-}
-
 func (c *Cache) deleteItem(bucket *bucket, item *Item) {
 	bucket.delete(item.key) //stop other GETs from getting it
 	c.deletables <- item
@@ -257,42 +180,48 @@ func (c *Cache) promote(item *Item) {
 }
 
 func (c *Cache) worker() {
-	defer close(c.control)
 	dropped := 0
+	cc := c.control
+
 	promoteItem := func(item *Item) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
 		}
 	}
+
 	for {
 		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				goto drain
-			}
+		case item := <-c.promotables:
 			promoteItem(item)
 		case item := <-c.deletables:
 			c.doDelete(item)
-		case control := <-c.control:
+		case control := <-cc:
 			switch msg := control.(type) {
-			case getDropped:
+			case controlStop:
+				goto drain
+			case controlGetDropped:
 				msg.res <- dropped
 				dropped = 0
-			case setMaxSize:
+			case controlSetMaxSize:
 				c.maxSize = msg.size
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
-			case clear:
+				msg.done <- struct{}{}
+			case controlClear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
 				}
 				c.size = 0
 				c.list = list.New()
 				msg.done <- struct{}{}
-			case syncWorker:
-				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,
-					c.deletables, c.doDelete)
+			case controlGetSize:
+				msg.res <- c.size
+			case controlGC:
+				dropped += c.gc()
+				msg.done <- struct{}{}
+			case controlSyncUpdates:
+				doAllPendingPromotesAndDeletes(c.promotables, promoteItem, c.deletables, c.doDelete)
 				msg.done <- struct{}{}
 			}
 		}
@@ -304,7 +233,6 @@ drain:
 		case item := <-c.deletables:
 			c.doDelete(item)
 		default:
-			close(c.deletables)
 			return
 		}
 	}
@@ -325,9 +253,7 @@ doAllPromotes:
 	for {
 		select {
 		case item := <-promotables:
-			if item != nil {
-				promoteFn(item)
-			}
+			promoteFn(item)
 		default:
 			break doAllPromotes
 		}
