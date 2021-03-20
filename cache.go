@@ -14,8 +14,13 @@ type getDropped struct {
 	res chan int
 }
 
+type getSize struct {
+	res chan int64
+}
+
 type setMaxSize struct {
 	size int64
+	done chan struct{}
 }
 
 type clear struct {
@@ -23,6 +28,10 @@ type clear struct {
 }
 
 type syncWorker struct {
+	done chan struct{}
+}
+
+type gc struct {
 	done chan struct{}
 }
 
@@ -167,6 +176,7 @@ func (c *Cache) Delete(key string) bool {
 }
 
 // Clears the cache
+// This is a control command.
 func (c *Cache) Clear() {
 	done := make(chan struct{})
 	c.control <- clear{done: done}
@@ -175,6 +185,7 @@ func (c *Cache) Clear() {
 
 // Stops the background worker. Operations performed on the cache after Stop
 // is called are likely to panic
+// This is a control command.
 func (c *Cache) Stop() {
 	close(c.promotables)
 	<-c.control
@@ -182,6 +193,7 @@ func (c *Cache) Stop() {
 
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
+// This is a control command.
 func (c *Cache) GetDropped() int {
 	return doGetDropped(c.control)
 }
@@ -205,6 +217,7 @@ func doGetDropped(controlCh chan<- interface{}) int {
 // This applies only to cache methods that were previously called by the same goroutine that is
 // now calling SyncUpdates. If other goroutines are using the cache at the same time, there is
 // no way to know whether any of them still have pending state updates when SyncUpdates returns.
+// This is a control command.
 func (c *Cache) SyncUpdates() {
 	doSyncUpdates(c.control)
 }
@@ -217,8 +230,30 @@ func doSyncUpdates(controlCh chan<- interface{}) {
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
 // is smaller than the cached size
+// This is a control command.
 func (c *Cache) SetMaxSize(size int64) {
-	c.control <- setMaxSize{size}
+	done := make(chan struct{})
+	c.control <- setMaxSize{size: size, done: done}
+	<-done
+}
+
+// Forces GC. There should be no reason to call this function, except from tests
+// which require synchronous GC.
+// This is a control command.
+func (c *Cache) GC() {
+	done := make(chan struct{})
+	c.control <- gc{done: done}
+	<-done
+}
+
+// Gets the size of the cache. This is an O(1) call to make, but it is handled
+// by the worker goroutine. It's meant to be called periodically for metrics, or
+// from tests.
+// This is a control command.
+func (c *Cache) GetSize() int64 {
+	res := make(chan int64)
+	c.control <- getSize{res}
+	return <-res
 }
 
 func (c *Cache) restart() {
@@ -283,12 +318,18 @@ func (c *Cache) worker() {
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
+				msg.done <- struct{}{}
 			case clear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
 				}
 				c.size = 0
 				c.list = list.New()
+				msg.done <- struct{}{}
+			case getSize:
+				msg.res <- c.size
+			case gc:
+				dropped += c.gc()
 				msg.done <- struct{}{}
 			case syncWorker:
 				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,

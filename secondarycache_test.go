@@ -97,10 +97,10 @@ func (_ SecondaryCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	sCache := cache.GetOrCreateSecondaryCache("0")
 	item := sCache.TrackingGet("a")
 	time.Sleep(time.Millisecond * 10)
-	gcLayeredCache(cache)
+	cache.GC()
 	Expect(cache.Get("0", "a").Value()).To.Equal(0)
 	Expect(cache.Get("1", "a")).To.Equal(nil)
 	item.Release()
-	gcLayeredCache(cache)
+	cache.GC()
 	Expect(cache.Get("0", "a")).To.Equal(nil)
 }
