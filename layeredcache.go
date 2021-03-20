@@ -195,11 +195,6 @@ func (c *LayeredCache) worker() {
 	dropped := 0
 	cc := c.control
 
-	stop := time.NewTimer(0)
-	if !stop.Stop() {
-		<-stop.C
-	}
-
 	promoteItem := func(item *Item) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
