@@ -97,9 +97,10 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
 
-	time.Sleep(time.Millisecond * 10) // Run once to init
+	cache.SyncUpdates() // wait for worker to pick up preceding updates
+
 	cache.Delete("spice")
-	time.Sleep(time.Millisecond * 10) // Wait for worker to pick up deleted items
+	cache.SyncUpdates()
 
 	Expect(cache.Get("spice")).To.Equal(nil)
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
@@ -122,8 +123,7 @@ func (_ CacheTests) GCsTheOldestItems() {
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
-	//let the items get promoted (and added to our list)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	gcCache(cache)
 	Expect(cache.Get("9")).To.Equal(nil)
 	Expect(cache.Get("10").Value()).To.Equal(10)
@@ -135,9 +135,9 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
-	time.Sleep(time.Millisecond * 10) //run the worker once to init the list
+	cache.SyncUpdates()
 	cache.Get("9")
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	gcCache(cache)
 	Expect(cache.Get("9").Value()).To.Equal(9)
 	Expect(cache.Get("10")).To.Equal(nil)
@@ -151,7 +151,7 @@ func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
 	item1 := cache.TrackingGet("1")
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	gcCache(cache)
 	Expect(cache.Get("0").Value()).To.Equal(0)
 	Expect(cache.Get("1").Value()).To.Equal(1)
@@ -174,7 +174,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2").Value()).To.Equal(2)
@@ -187,7 +187,7 @@ func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2")).To.Equal(nil)
@@ -201,19 +201,19 @@ func (_ CacheTests) SetUpdatesSizeOnDelta() {
 	cache := New(Configure())
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 5)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 5)
 	cache.Set("b", &SizedItem{0, 4}, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 6)
 	cache.Set("b", &SizedItem{0, 2}, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 4)
 	cache.Delete("b")
-	time.Sleep(time.Millisecond * 100)
+	cache.SyncUpdates()
 	checkSize(cache, 2)
 }
 
@@ -223,7 +223,7 @@ func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
 	cache.Replace("4", &SizedItem{1, 2})
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 6)
 }
 
@@ -233,15 +233,15 @@ func (_ CacheTests) ReplaceChangesSize() {
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 
 	cache.Replace("2", &SizedItem{1, 2})
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 4)
 
 	cache.Replace("2", &SizedItem{1, 1})
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 3)
 
 	cache.Replace("2", &SizedItem{1, 3})
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	checkSize(cache, 5)
 }
 
@@ -251,7 +251,7 @@ func (_ CacheTests) ResizeOnTheFly() {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
 	cache.SetMaxSize(3)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(cache.GetDropped()).To.Equal(2)
 	Expect(cache.Get("0")).To.Equal(nil)
 	Expect(cache.Get("1")).To.Equal(nil)
@@ -260,7 +260,7 @@ func (_ CacheTests) ResizeOnTheFly() {
 	Expect(cache.Get("4").Value()).To.Equal(4)
 
 	cache.Set("5", 5, time.Minute)
-	time.Sleep(time.Millisecond * 5)
+	cache.SyncUpdates()
 	Expect(cache.GetDropped()).To.Equal(1)
 	Expect(cache.Get("2")).To.Equal(nil)
 	Expect(cache.Get("3").Value()).To.Equal(3)
@@ -269,7 +269,7 @@ func (_ CacheTests) ResizeOnTheFly() {
 
 	cache.SetMaxSize(10)
 	cache.Set("6", 6, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(cache.GetDropped()).To.Equal(0)
 	Expect(cache.Get("3").Value()).To.Equal(3)
 	Expect(cache.Get("4").Value()).To.Equal(4)
@@ -285,23 +285,23 @@ func (_ CacheTests) ForEachFunc() {
 	Expect(forEachKeys(cache)).To.Equal([]string{"1"})
 
 	cache.Set("2", 2, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).To.Equal([]string{"1", "2"})
 
 	cache.Set("3", 3, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).To.Equal([]string{"1", "2", "3"})
 
 	cache.Set("4", 4, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).To.Equal([]string{"2", "3", "4"})
 
 	cache.Set("stop", 5, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).Not.To.Contain("stop")
 
 	cache.Set("6", 6, time.Minute)
-	time.Sleep(time.Millisecond * 10)
+	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).Not.To.Contain("stop")
 }
 

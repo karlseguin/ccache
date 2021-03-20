@@ -186,9 +186,13 @@ func (c *LayeredCache) Stop() {
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
 func (c *LayeredCache) GetDropped() int {
-	res := make(chan int)
-	c.control <- getDropped{res: res}
-	return <-res
+	return doGetDropped(c.control)
+}
+
+// SyncUpdates waits until the cache has finished asynchronous state updates for any operations
+// that were done by the current goroutine up to now. See Cache.SyncUpdates for details.
+func (c *LayeredCache) SyncUpdates() {
+	doSyncUpdates(c.control)
 }
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
@@ -225,25 +229,31 @@ func (c *LayeredCache) promote(item *Item) {
 func (c *LayeredCache) worker() {
 	defer close(c.control)
 	dropped := 0
+	promoteItem := func(item *Item) {
+		if c.doPromote(item) && c.size > c.maxSize {
+			dropped += c.gc()
+		}
+	}
+	deleteItem := func(item *Item) {
+		if item.element == nil {
+			atomic.StoreInt32(&item.promotions, -2)
+		} else {
+			c.size -= item.size
+			if c.onDelete != nil {
+				c.onDelete(item)
+			}
+			c.list.Remove(item.element)
+		}
+	}
 	for {
 		select {
 		case item, ok := <-c.promotables:
 			if ok == false {
 				return
 			}
-			if c.doPromote(item) && c.size > c.maxSize {
-				dropped += c.gc()
-			}
+			promoteItem(item)
 		case item := <-c.deletables:
-			if item.element == nil {
-				atomic.StoreInt32(&item.promotions, -2)
-			} else {
-				c.size -= item.size
-				if c.onDelete != nil {
-					c.onDelete(item)
-				}
-				c.list.Remove(item.element)
-			}
+			deleteItem(item)
 		case control := <-c.control:
 			switch msg := control.(type) {
 			case getDropped:
@@ -260,6 +270,10 @@ func (c *LayeredCache) worker() {
 				}
 				c.size = 0
 				c.list = list.New()
+				msg.done <- struct{}{}
+			case syncWorker:
+				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,
+					c.deletables, deleteItem)
 				msg.done <- struct{}{}
 			}
 		}

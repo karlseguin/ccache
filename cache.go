@@ -13,11 +13,16 @@ import (
 type getDropped struct {
 	res chan int
 }
+
 type setMaxSize struct {
 	size int64
 }
 
 type clear struct {
+	done chan struct{}
+}
+
+type syncWorker struct {
 	done chan struct{}
 }
 
@@ -178,9 +183,36 @@ func (c *Cache) Stop() {
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
 func (c *Cache) GetDropped() int {
+	return doGetDropped(c.control)
+}
+
+func doGetDropped(controlCh chan<- interface{}) int {
 	res := make(chan int)
-	c.control <- getDropped{res: res}
+	controlCh <- getDropped{res: res}
 	return <-res
+}
+
+// SyncUpdates waits until the cache has finished asynchronous state updates for any operations
+// that were done by the current goroutine up to now.
+//
+// For efficiency, the cache's implementation of LRU behavior is partly managed by a worker
+// goroutine that updates its internal data structures asynchronously. This means that the
+// cache's state in terms of (for instance) eviction of LRU items is only eventually consistent;
+// there is no guarantee that it happens before a Get or Set call has returned. Most of the time
+// application code will not care about this, but especially in a test scenario you may want to
+// be able to know when the worker has caught up.
+//
+// This applies only to cache methods that were previously called by the same goroutine that is
+// now calling SyncUpdates. If other goroutines are using the cache at the same time, there is
+// no way to know whether any of them still have pending state updates when SyncUpdates returns.
+func (c *Cache) SyncUpdates() {
+	doSyncUpdates(c.control)
+}
+
+func doSyncUpdates(controlCh chan<- interface{}) {
+	done := make(chan struct{})
+	controlCh <- syncWorker{done: done}
+	<-done
 }
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
@@ -227,15 +259,18 @@ func (c *Cache) promote(item *Item) {
 func (c *Cache) worker() {
 	defer close(c.control)
 	dropped := 0
+	promoteItem := func(item *Item) {
+		if c.doPromote(item) && c.size > c.maxSize {
+			dropped += c.gc()
+		}
+	}
 	for {
 		select {
 		case item, ok := <-c.promotables:
 			if ok == false {
 				goto drain
 			}
-			if c.doPromote(item) && c.size > c.maxSize {
-				dropped += c.gc()
-			}
+			promoteItem(item)
 		case item := <-c.deletables:
 			c.doDelete(item)
 		case control := <-c.control:
@@ -255,6 +290,10 @@ func (c *Cache) worker() {
 				c.size = 0
 				c.list = list.New()
 				msg.done <- struct{}{}
+			case syncWorker:
+				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,
+					c.deletables, c.doDelete)
+				msg.done <- struct{}{}
 			}
 		}
 	}
@@ -267,6 +306,39 @@ drain:
 		default:
 			close(c.deletables)
 			return
+		}
+	}
+}
+
+// This method is used to implement SyncUpdates. It simply receives and processes as many
+// items as it can receive from the promotables and deletables channels immediately without
+// blocking. If some other goroutine sends an item on either channel after this method has
+// finished receiving, that's OK, because SyncUpdates only guarantees processing of values
+// that were already sent by the same goroutine.
+func doAllPendingPromotesAndDeletes(
+	promotables <-chan *Item,
+	promoteFn func(*Item),
+	deletables <-chan *Item,
+	deleteFn func(*Item),
+) {
+doAllPromotes:
+	for {
+		select {
+		case item := <-promotables:
+			if item != nil {
+				promoteFn(item)
+			}
+		default:
+			break doAllPromotes
+		}
+	}
+doAllDeletes:
+	for {
+		select {
+		case item := <-deletables:
+			deleteFn(item)
+		default:
+			break doAllDeletes
 		}
 	}
 }
