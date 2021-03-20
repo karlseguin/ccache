@@ -1,7 +1,6 @@
 package ccache
 
 import (
-	"fmt"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -27,7 +26,6 @@ func (_ CacheTests) DeletesAValue() {
 	cache.Set("worm", "sand", time.Minute)
 	Expect(cache.ItemCount()).To.Equal(2)
 
-	fmt.Println("a")
 	cache.Delete("spice")
 	Expect(cache.Get("spice")).To.Equal(nil)
 	Expect(cache.Get("worm").Value()).To.Equal("sand")
