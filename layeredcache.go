@@ -68,7 +68,10 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 		return nil
 	}
 	if item.expires > time.Now().UnixNano() {
-		c.promote(item)
+		select {
+		case c.promotables <- item:
+		default:
+		}
 	}
 	return item
 }

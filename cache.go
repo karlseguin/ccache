@@ -108,7 +108,10 @@ func (c *Cache) Get(key string) *Item {
 		return nil
 	}
 	if !item.Expired() {
-		c.promote(item)
+		select {
+		case c.promotables <- item:
+		default:
+		}
 	}
 	return item
 }
@@ -273,7 +276,7 @@ func (c *Cache) set(key string, value interface{}, duration time.Duration, track
 	if existing != nil {
 		c.deletables <- existing
 	}
-	c.promote(item)
+	c.promotables <- item
 	return item
 }
 
@@ -281,14 +284,6 @@ func (c *Cache) bucket(key string) *bucket {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]
-}
-
-func (c *Cache) promote(item *Item) {
-	select {
-	case c.promotables <- item:
-	default:
-	}
-
 }
 
 func (c *Cache) worker() {
