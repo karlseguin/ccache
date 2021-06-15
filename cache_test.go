@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"math/rand"
 	"sort"
 	"strconv"
 	"sync/atomic"
@@ -303,6 +304,31 @@ func (_ CacheTests) ForEachFunc() {
 	cache.Set("6", 6, time.Minute)
 	cache.SyncUpdates()
 	Expect(forEachKeys(cache)).Not.To.Contain("stop")
+}
+
+func (_ CacheTests) ConcurrentStop() {
+	for i := 0; i < 100; i++ {
+		cache := New(Configure())
+		r := func() {
+			for {
+				key := strconv.Itoa(int(rand.Int31n(100)))
+				switch rand.Int31n(3) {
+				case 0:
+					cache.Get(key)
+				case 1:
+					cache.Set(key, key, time.Minute)
+				case 2:
+					cache.Delete(key)
+				}
+			}
+		}
+		go r()
+		go r()
+		go r()
+		time.Sleep(time.Millisecond * 10)
+		cache.Stop()
+	}
+
 }
 
 type SizedItem struct {
