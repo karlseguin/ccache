@@ -116,6 +116,13 @@ func (c *Cache) Get(key string) *Item {
 	return item
 }
 
+// Same as Get but does not promote the value. This essentially circumvents the
+// "least recently used" aspect of this cache. To some degree, it's akin to a
+// "peak"
+func (c *Cache) GetWithoutPromote(key string) *Item {
+	return c.bucket(key).get(key)
+}
+
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
 func (c *Cache) TrackingGet(key string) TrackedItem {

@@ -194,6 +194,20 @@ func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
 	Expect(cache.Get("11", "a").Value()).To.Equal(11)
 }
 
+func (_ LayeredCacheTests) GetWithoutPromoteDoesNotPromote() {
+	cache := Layered(Configure().ItemsToPrune(10).GetsPerPromote(1))
+	for i := 0; i < 500; i++ {
+		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
+	}
+	cache.SyncUpdates()
+	cache.GetWithoutPromote("9", "a")
+	cache.SyncUpdates()
+	cache.GC()
+	Expect(cache.Get("9", "a")).To.Equal(nil)
+	Expect(cache.Get("10", "a").Value()).To.Equal(10)
+	Expect(cache.Get("11", "a").Value()).To.Equal(11)
+}
+
 func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := Layered(Configure().ItemsToPrune(10).Track())
 	item0 := cache.TrackingSet("0", "a", 0, time.Minute)

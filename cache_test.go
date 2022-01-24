@@ -144,6 +144,20 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 	Expect(cache.Get("11").Value()).To.Equal(11)
 }
 
+func (_ CacheTests) GetWithoutPromoteDoesNotPromote() {
+	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
+	for i := 0; i < 500; i++ {
+		cache.Set(strconv.Itoa(i), i, time.Minute)
+	}
+	cache.SyncUpdates()
+	cache.GetWithoutPromote("9")
+	cache.SyncUpdates()
+	cache.GC()
+	Expect(cache.Get("9")).To.Equal(nil)
+	Expect(cache.Get("10").Value()).To.Equal(10)
+	Expect(cache.Get("11").Value()).To.Equal(11)
+}
+
 func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 	cache := New(Configure().ItemsToPrune(11).Track())
 	item0 := cache.TrackingSet("0", 0, time.Minute)
