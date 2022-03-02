@@ -1,6 +1,6 @@
 package ccache
 
-type Configuration struct {
+type Configuration[T any] struct {
 	maxSize        int64
 	buckets        int
 	itemsToPrune   int
@@ -8,14 +8,14 @@ type Configuration struct {
 	promoteBuffer  int
 	getsPerPromote int32
 	tracking       bool
-	onDelete       func(item *Item)
+	onDelete       func(item *Item[T])
 }
 
 // Creates a configuration object with sensible defaults
 // Use this as the start of the fluent configuration:
 // e.g.: ccache.New(ccache.Configure().MaxSize(10000))
-func Configure() *Configuration {
-	return &Configuration{
+func Configure[T any]() *Configuration[T] {
+	return &Configuration[T]{
 		buckets:        16,
 		itemsToPrune:   500,
 		deleteBuffer:   1024,
@@ -28,7 +28,7 @@ func Configure() *Configuration {
 
 // The max size for the cache
 // [5000]
-func (c *Configuration) MaxSize(max int64) *Configuration {
+func (c *Configuration[T]) MaxSize(max int64) *Configuration[T] {
 	c.maxSize = max
 	return c
 }
@@ -36,7 +36,7 @@ func (c *Configuration) MaxSize(max int64) *Configuration {
 // Keys are hashed into % bucket count to provide greater concurrency (every set
 // requires a write lock on the bucket). Must be a power of 2 (1, 2, 4, 8, 16, ...)
 // [16]
-func (c *Configuration) Buckets(count uint32) *Configuration {
+func (c *Configuration[T]) Buckets(count uint32) *Configuration[T] {
 	if count == 0 || ((count&(^count+1)) == count) == false {
 		count = 16
 	}
@@ -46,7 +46,7 @@ func (c *Configuration) Buckets(count uint32) *Configuration {
 
 // The number of items to prune when memory is low
 // [500]
-func (c *Configuration) ItemsToPrune(count uint32) *Configuration {
+func (c *Configuration[T]) ItemsToPrune(count uint32) *Configuration[T] {
 	c.itemsToPrune = int(count)
 	return c
 }
@@ -54,14 +54,14 @@ func (c *Configuration) ItemsToPrune(count uint32) *Configuration {
 // The size of the queue for items which should be promoted. If the queue fills
 // up, promotions are skipped
 // [1024]
-func (c *Configuration) PromoteBuffer(size uint32) *Configuration {
+func (c *Configuration[T]) PromoteBuffer(size uint32) *Configuration[T] {
 	c.promoteBuffer = int(size)
 	return c
 }
 
 // The size of the queue for items which should be deleted. If the queue fills
 // up, calls to Delete() will block
-func (c *Configuration) DeleteBuffer(size uint32) *Configuration {
+func (c *Configuration[T]) DeleteBuffer(size uint32) *Configuration[T] {
 	c.deleteBuffer = int(size)
 	return c
 }
@@ -70,7 +70,7 @@ func (c *Configuration) DeleteBuffer(size uint32) *Configuration {
 // to promote an item on every Get. GetsPerPromote specifies the number of Gets
 // a key must have before being promoted
 // [3]
-func (c *Configuration) GetsPerPromote(count int32) *Configuration {
+func (c *Configuration[T]) GetsPerPromote(count int32) *Configuration[T] {
 	c.getsPerPromote = count
 	return c
 }
@@ -89,7 +89,7 @@ func (c *Configuration) GetsPerPromote(count int32) *Configuration {
 // By turning tracking on and using the cache's TrackingGet, the cache
 // won't evict items which you haven't called Release() on. It's a simple reference
 // counter.
-func (c *Configuration) Track() *Configuration {
+func (c *Configuration[T]) Track() *Configuration[T] {
 	c.tracking = true
 	return c
 }
@@ -97,7 +97,7 @@ func (c *Configuration) Track() *Configuration {
 // OnDelete allows setting a callback function to react to ideam deletion.
 // This typically allows to do a cleanup of resources, such as calling a Close() on
 // cached object that require some kind of tear-down.
-func (c *Configuration) OnDelete(callback func(item *Item)) *Configuration {
+func (c *Configuration[T]) OnDelete(callback func(item *Item[T])) *Configuration[T] {
 	c.onDelete = callback
 	return c
 }

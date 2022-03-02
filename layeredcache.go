@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-type LayeredCache struct {
-	*Configuration
+type LayeredCache[T any] struct {
+	*Configuration[T]
 	list        *list.List
-	buckets     []*layeredBucket
+	buckets     []*layeredBucket[T]
 	bucketMask  uint32
 	size        int64
-	deletables  chan *Item
-	promotables chan *Item
+	deletables  chan *Item[T]
+	promotables chan *Item[T]
 	control     chan interface{}
 }
 
@@ -32,25 +32,25 @@ type LayeredCache struct {
 // secondary key 2 = ".xml"
 
 // See ccache.Configure() for creating a configuration
-func Layered(config *Configuration) *LayeredCache {
-	c := &LayeredCache{
+func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
+	c := &LayeredCache[T]{
 		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
-		buckets:       make([]*layeredBucket, config.buckets),
-		deletables:    make(chan *Item, config.deleteBuffer),
+		buckets:       make([]*layeredBucket[T], config.buckets),
+		deletables:    make(chan *Item[T], config.deleteBuffer),
 		control:       make(chan interface{}),
 	}
 	for i := 0; i < int(config.buckets); i++ {
-		c.buckets[i] = &layeredBucket{
-			buckets: make(map[string]*bucket),
+		c.buckets[i] = &layeredBucket[T]{
+			buckets: make(map[string]*bucket[T]),
 		}
 	}
 	c.restart()
 	return c
 }
 
-func (c *LayeredCache) ItemCount() int {
+func (c *LayeredCache[T]) ItemCount() int {
 	count := 0
 	for _, b := range c.buckets {
 		count += b.itemCount()
@@ -62,7 +62,7 @@ func (c *LayeredCache) ItemCount() int {
 // This can return an expired item. Use item.Expired() to see if the item
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
-func (c *LayeredCache) Get(primary, secondary string) *Item {
+func (c *LayeredCache[T]) Get(primary, secondary string) *Item[T] {
 	item := c.bucket(primary).get(primary, secondary)
 	if item == nil {
 		return nil
@@ -76,23 +76,23 @@ func (c *LayeredCache) Get(primary, secondary string) *Item {
 	return item
 }
 
-func (c *LayeredCache) ForEachFunc(primary string, matches func(key string, item *Item) bool) {
+func (c *LayeredCache[T]) ForEachFunc(primary string, matches func(key string, item *Item[T]) bool) {
 	c.bucket(primary).forEachFunc(primary, matches)
 }
 
 // Get the secondary cache for a given primary key. This operation will
 // never return nil. In the case where the primary key does not exist, a
 // new, underlying, empty bucket will be created and returned.
-func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache {
+func (c *LayeredCache[T]) GetOrCreateSecondaryCache(primary string) *SecondaryCache[T] {
 	primaryBkt := c.bucket(primary)
 	bkt := primaryBkt.getSecondaryBucket(primary)
 	primaryBkt.Lock()
 	if bkt == nil {
-		bkt = &bucket{lookup: make(map[string]*Item)}
+		bkt = &bucket[T]{lookup: make(map[string]*Item[T])}
 		primaryBkt.buckets[primary] = bkt
 	}
 	primaryBkt.Unlock()
-	return &SecondaryCache{
+	return &SecondaryCache[T]{
 		bucket: bkt,
 		pCache: c,
 	}
@@ -100,29 +100,29 @@ func (c *LayeredCache) GetOrCreateSecondaryCache(primary string) *SecondaryCache
 
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
-func (c *LayeredCache) TrackingGet(primary, secondary string) TrackedItem {
+func (c *LayeredCache[T]) TrackingGet(primary, secondary string) TrackedItem[T] {
 	item := c.Get(primary, secondary)
 	if item == nil {
-		return NilTracked
+		return nil
 	}
 	item.track()
 	return item
 }
 
 // Set the value in the cache for the specified duration
-func (c *LayeredCache) TrackingSet(primary, secondary string, value interface{}, duration time.Duration) TrackedItem {
+func (c *LayeredCache[T]) TrackingSet(primary, secondary string, value T, duration time.Duration) TrackedItem[T] {
 	return c.set(primary, secondary, value, duration, true)
 }
 
 // Set the value in the cache for the specified duration
-func (c *LayeredCache) Set(primary, secondary string, value interface{}, duration time.Duration) {
+func (c *LayeredCache[T]) Set(primary, secondary string, value T, duration time.Duration) {
 	c.set(primary, secondary, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL nor does it alter its position in the LRU
-func (c *LayeredCache) Replace(primary, secondary string, value interface{}) bool {
+func (c *LayeredCache[T]) Replace(primary, secondary string, value T) bool {
 	item := c.bucket(primary).get(primary, secondary)
 	if item == nil {
 		return false
@@ -137,7 +137,7 @@ func (c *LayeredCache) Replace(primary, secondary string, value interface{}) boo
 // Note that Fetch merely calls the public Get and Set functions. If you want
 // a different Fetch behavior, such as thundering herd protection or returning
 // expired items, implement it in your application.
-func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
+func (c *LayeredCache[T]) Fetch(primary, secondary string, duration time.Duration, fetch func() (T, error)) (*Item[T], error) {
 	item := c.Get(primary, secondary)
 	if item != nil {
 		return item, nil
@@ -150,7 +150,7 @@ func (c *LayeredCache) Fetch(primary, secondary string, duration time.Duration, 
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
-func (c *LayeredCache) Delete(primary, secondary string) bool {
+func (c *LayeredCache[T]) Delete(primary, secondary string) bool {
 	item := c.bucket(primary).delete(primary, secondary)
 	if item != nil {
 		c.deletables <- item
@@ -160,47 +160,47 @@ func (c *LayeredCache) Delete(primary, secondary string) bool {
 }
 
 // Deletes all items that share the same primary key
-func (c *LayeredCache) DeleteAll(primary string) bool {
+func (c *LayeredCache[T]) DeleteAll(primary string) bool {
 	return c.bucket(primary).deleteAll(primary, c.deletables)
 }
 
 // Deletes all items that share the same primary key and prefix.
-func (c *LayeredCache) DeletePrefix(primary, prefix string) int {
+func (c *LayeredCache[T]) DeletePrefix(primary, prefix string) int {
 	return c.bucket(primary).deletePrefix(primary, prefix, c.deletables)
 }
 
 // Deletes all items that share the same primary key and where the matches func evaluates to true.
-func (c *LayeredCache) DeleteFunc(primary string, matches func(key string, item *Item) bool) int {
+func (c *LayeredCache[T]) DeleteFunc(primary string, matches func(key string, item *Item[T]) bool) int {
 	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
 }
 
 // Clears the cache
-func (c *LayeredCache) Clear() {
+func (c *LayeredCache[T]) Clear() {
 	done := make(chan struct{})
 	c.control <- clear{done: done}
 	<-done
 }
 
-func (c *LayeredCache) Stop() {
+func (c *LayeredCache[T]) Stop() {
 	close(c.promotables)
 	<-c.control
 }
 
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
-func (c *LayeredCache) GetDropped() int {
+func (c *LayeredCache[T]) GetDropped() int {
 	return doGetDropped(c.control)
 }
 
 // SyncUpdates waits until the cache has finished asynchronous state updates for any operations
 // that were done by the current goroutine up to now. See Cache.SyncUpdates for details.
-func (c *LayeredCache) SyncUpdates() {
+func (c *LayeredCache[T]) SyncUpdates() {
 	doSyncUpdates(c.control)
 }
 
 // Sets a new max size. That can result in a GC being run if the new maxium size
 // is smaller than the cached size
-func (c *LayeredCache) SetMaxSize(size int64) {
+func (c *LayeredCache[T]) SetMaxSize(size int64) {
 	done := make(chan struct{})
 	c.control <- setMaxSize{size: size, done: done}
 	<-done
@@ -209,7 +209,7 @@ func (c *LayeredCache) SetMaxSize(size int64) {
 // Forces GC. There should be no reason to call this function, except from tests
 // which require synchronous GC.
 // This is a control command.
-func (c *LayeredCache) GC() {
+func (c *LayeredCache[T]) GC() {
 	done := make(chan struct{})
 	c.control <- gc{done: done}
 	<-done
@@ -219,19 +219,19 @@ func (c *LayeredCache) GC() {
 // by the worker goroutine. It's meant to be called periodically for metrics, or
 // from tests.
 // This is a control command.
-func (c *LayeredCache) GetSize() int64 {
+func (c *LayeredCache[T]) GetSize() int64 {
 	res := make(chan int64)
 	c.control <- getSize{res}
 	return <-res
 }
 
-func (c *LayeredCache) restart() {
-	c.promotables = make(chan *Item, c.promoteBuffer)
+func (c *LayeredCache[T]) restart() {
+	c.promotables = make(chan *Item[T], c.promoteBuffer)
 	c.control = make(chan interface{})
 	go c.worker()
 }
 
-func (c *LayeredCache) set(primary, secondary string, value interface{}, duration time.Duration, track bool) *Item {
+func (c *LayeredCache[T]) set(primary, secondary string, value T, duration time.Duration, track bool) *Item[T] {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration, track)
 	if existing != nil {
 		c.deletables <- existing
@@ -240,25 +240,25 @@ func (c *LayeredCache) set(primary, secondary string, value interface{}, duratio
 	return item
 }
 
-func (c *LayeredCache) bucket(key string) *layeredBucket {
+func (c *LayeredCache[T]) bucket(key string) *layeredBucket[T] {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *LayeredCache) promote(item *Item) {
+func (c *LayeredCache[T]) promote(item *Item[T]) {
 	c.promotables <- item
 }
 
-func (c *LayeredCache) worker() {
+func (c *LayeredCache[T]) worker() {
 	defer close(c.control)
 	dropped := 0
-	promoteItem := func(item *Item) {
+	promoteItem := func(item *Item[T]) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
 		}
 	}
-	deleteItem := func(item *Item) {
+	deleteItem := func(item *Item[T]) {
 		if item.element == nil {
 			atomic.StoreInt32(&item.promotions, -2)
 		} else {
@@ -310,7 +310,7 @@ func (c *LayeredCache) worker() {
 	}
 }
 
-func (c *LayeredCache) doPromote(item *Item) bool {
+func (c *LayeredCache[T]) doPromote(item *Item[T]) bool {
 	// deleted before it ever got promoted
 	if atomic.LoadInt32(&item.promotions) == -2 {
 		return false
@@ -327,7 +327,7 @@ func (c *LayeredCache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *LayeredCache) gc() int {
+func (c *LayeredCache[T]) gc() int {
 	element := c.list.Back()
 	dropped := 0
 	itemsToPrune := int64(c.itemsToPrune)
@@ -341,7 +341,7 @@ func (c *LayeredCache) gc() int {
 			return dropped
 		}
 		prev := element.Prev()
-		item := element.Value.(*Item)
+		item := element.Value.(*Item[T])
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.group).delete(item.group, item.key)
 			c.size -= item.size

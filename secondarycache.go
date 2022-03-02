@@ -2,20 +2,20 @@ package ccache
 
 import "time"
 
-type SecondaryCache struct {
-	bucket *bucket
-	pCache *LayeredCache
+type SecondaryCache[T any] struct {
+	bucket *bucket[T]
+	pCache *LayeredCache[T]
 }
 
 // Get the secondary key.
 // The semantics are the same as for LayeredCache.Get
-func (s *SecondaryCache) Get(secondary string) *Item {
+func (s *SecondaryCache[T]) Get(secondary string) *Item[T] {
 	return s.bucket.get(secondary)
 }
 
 // Set the secondary key to a value.
 // The semantics are the same as for LayeredCache.Set
-func (s *SecondaryCache) Set(secondary string, value interface{}, duration time.Duration) *Item {
+func (s *SecondaryCache[T]) Set(secondary string, value T, duration time.Duration) *Item[T] {
 	item, existing := s.bucket.set(secondary, value, duration, false)
 	if existing != nil {
 		s.pCache.deletables <- existing
@@ -26,7 +26,7 @@ func (s *SecondaryCache) Set(secondary string, value interface{}, duration time.
 
 // Fetch or set a secondary key.
 // The semantics are the same as for LayeredCache.Fetch
-func (s *SecondaryCache) Fetch(secondary string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
+func (s *SecondaryCache[T]) Fetch(secondary string, duration time.Duration, fetch func() (T, error)) (*Item[T], error) {
 	item := s.Get(secondary)
 	if item != nil {
 		return item, nil
@@ -40,7 +40,7 @@ func (s *SecondaryCache) Fetch(secondary string, duration time.Duration, fetch f
 
 // Delete a secondary key.
 // The semantics are the same as for LayeredCache.Delete
-func (s *SecondaryCache) Delete(secondary string) bool {
+func (s *SecondaryCache[T]) Delete(secondary string) bool {
 	item := s.bucket.delete(secondary)
 	if item != nil {
 		s.pCache.deletables <- item
@@ -51,7 +51,7 @@ func (s *SecondaryCache) Delete(secondary string) bool {
 
 // Replace a secondary key.
 // The semantics are the same as for LayeredCache.Replace
-func (s *SecondaryCache) Replace(secondary string, value interface{}) bool {
+func (s *SecondaryCache[T]) Replace(secondary string, value T) bool {
 	item := s.Get(secondary)
 	if item == nil {
 		return false
@@ -62,10 +62,10 @@ func (s *SecondaryCache) Replace(secondary string, value interface{}) bool {
 
 // Track a secondary key.
 // The semantics are the same as for LayeredCache.TrackingGet
-func (c *SecondaryCache) TrackingGet(secondary string) TrackedItem {
+func (c *SecondaryCache[T]) TrackingGet(secondary string) TrackedItem[T] {
 	item := c.Get(secondary)
 	if item == nil {
-		return NilTracked
+		return nil
 	}
 	item.track()
 	return item

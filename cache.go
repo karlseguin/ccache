@@ -35,37 +35,37 @@ type gc struct {
 	done chan struct{}
 }
 
-type Cache struct {
-	*Configuration
+type Cache[T any] struct {
+	*Configuration[T]
 	list        *list.List
 	size        int64
-	buckets     []*bucket
+	buckets     []*bucket[T]
 	bucketMask  uint32
-	deletables  chan *Item
-	promotables chan *Item
+	deletables  chan *Item[T]
+	promotables chan *Item[T]
 	control     chan interface{}
 }
 
 // Create a new cache with the specified configuration
 // See ccache.Configure() for creating a configuration
-func New(config *Configuration) *Cache {
-	c := &Cache{
+func New[T any](config *Configuration[T]) *Cache[T] {
+	c := &Cache[T]{
 		list:          list.New(),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
-		buckets:       make([]*bucket, config.buckets),
+		buckets:       make([]*bucket[T], config.buckets),
 		control:       make(chan interface{}),
 	}
 	for i := 0; i < config.buckets; i++ {
-		c.buckets[i] = &bucket{
-			lookup: make(map[string]*Item),
+		c.buckets[i] = &bucket[T]{
+			lookup: make(map[string]*Item[T]),
 		}
 	}
 	c.restart()
 	return c
 }
 
-func (c *Cache) ItemCount() int {
+func (c *Cache[T]) ItemCount() int {
 	count := 0
 	for _, b := range c.buckets {
 		count += b.itemCount()
@@ -73,7 +73,7 @@ func (c *Cache) ItemCount() int {
 	return count
 }
 
-func (c *Cache) DeletePrefix(prefix string) int {
+func (c *Cache[T]) DeletePrefix(prefix string) int {
 	count := 0
 	for _, b := range c.buckets {
 		count += b.deletePrefix(prefix, c.deletables)
@@ -82,7 +82,7 @@ func (c *Cache) DeletePrefix(prefix string) int {
 }
 
 // Deletes all items that the matches func evaluates to true.
-func (c *Cache) DeleteFunc(matches func(key string, item *Item) bool) int {
+func (c *Cache[T]) DeleteFunc(matches func(key string, item *Item[T]) bool) int {
 	count := 0
 	for _, b := range c.buckets {
 		count += b.deleteFunc(matches, c.deletables)
@@ -90,7 +90,7 @@ func (c *Cache) DeleteFunc(matches func(key string, item *Item) bool) int {
 	return count
 }
 
-func (c *Cache) ForEachFunc(matches func(key string, item *Item) bool) {
+func (c *Cache[T]) ForEachFunc(matches func(key string, item *Item[T]) bool) {
 	for _, b := range c.buckets {
 		if !b.forEachFunc(matches) {
 			break
@@ -102,7 +102,7 @@ func (c *Cache) ForEachFunc(matches func(key string, item *Item) bool) {
 // This can return an expired item. Use item.Expired() to see if the item
 // is expired and item.TTL() to see how long until the item expires (which
 // will be negative for an already expired item).
-func (c *Cache) Get(key string) *Item {
+func (c *Cache[T]) Get(key string) *Item[T] {
 	item := c.bucket(key).get(key)
 	if item == nil {
 		return nil
@@ -118,10 +118,10 @@ func (c *Cache) Get(key string) *Item {
 
 // Used when the cache was created with the Track() configuration option.
 // Avoid otherwise
-func (c *Cache) TrackingGet(key string) TrackedItem {
+func (c *Cache[T]) TrackingGet(key string) TrackedItem[T] {
 	item := c.Get(key)
 	if item == nil {
-		return NilTracked
+		return nil
 	}
 	item.track()
 	return item
@@ -129,19 +129,19 @@ func (c *Cache) TrackingGet(key string) TrackedItem {
 
 // Used when the cache was created with the Track() configuration option.
 // Sets the item, and returns a tracked reference to it.
-func (c *Cache) TrackingSet(key string, value interface{}, duration time.Duration) TrackedItem {
+func (c *Cache[T]) TrackingSet(key string, value T, duration time.Duration) TrackedItem[T] {
 	return c.set(key, value, duration, true)
 }
 
 // Set the value in the cache for the specified duration
-func (c *Cache) Set(key string, value interface{}, duration time.Duration) {
+func (c *Cache[T]) Set(key string, value T, duration time.Duration) {
 	c.set(key, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
 // Returns true if the item existed an was replaced, false otherwise.
 // Replace does not reset item's TTL
-func (c *Cache) Replace(key string, value interface{}) bool {
+func (c *Cache[T]) Replace(key string, value T) bool {
 	item := c.bucket(key).get(key)
 	if item == nil {
 		return false
@@ -156,7 +156,7 @@ func (c *Cache) Replace(key string, value interface{}) bool {
 // Note that Fetch merely calls the public Get and Set functions. If you want
 // a different Fetch behavior, such as thundering herd protection or returning
 // expired items, implement it in your application.
-func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interface{}, error)) (*Item, error) {
+func (c *Cache[T]) Fetch(key string, duration time.Duration, fetch func() (T, error)) (*Item[T], error) {
 	item := c.Get(key)
 	if item != nil && !item.Expired() {
 		return item, nil
@@ -169,7 +169,7 @@ func (c *Cache) Fetch(key string, duration time.Duration, fetch func() (interfac
 }
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
-func (c *Cache) Delete(key string) bool {
+func (c *Cache[T]) Delete(key string) bool {
 	item := c.bucket(key).delete(key)
 	if item != nil {
 		c.deletables <- item
@@ -180,7 +180,7 @@ func (c *Cache) Delete(key string) bool {
 
 // Clears the cache
 // This is a control command.
-func (c *Cache) Clear() {
+func (c *Cache[T]) Clear() {
 	done := make(chan struct{})
 	c.control <- clear{done: done}
 	<-done
@@ -189,7 +189,7 @@ func (c *Cache) Clear() {
 // Stops the background worker. Operations performed on the cache after Stop
 // is called are likely to panic
 // This is a control command.
-func (c *Cache) Stop() {
+func (c *Cache[T]) Stop() {
 	close(c.promotables)
 	<-c.control
 }
@@ -197,7 +197,7 @@ func (c *Cache) Stop() {
 // Gets the number of items removed from the cache due to memory pressure since
 // the last time GetDropped was called
 // This is a control command.
-func (c *Cache) GetDropped() int {
+func (c *Cache[T]) GetDropped() int {
 	return doGetDropped(c.control)
 }
 
@@ -221,7 +221,7 @@ func doGetDropped(controlCh chan<- interface{}) int {
 // now calling SyncUpdates. If other goroutines are using the cache at the same time, there is
 // no way to know whether any of them still have pending state updates when SyncUpdates returns.
 // This is a control command.
-func (c *Cache) SyncUpdates() {
+func (c *Cache[T]) SyncUpdates() {
 	doSyncUpdates(c.control)
 }
 
@@ -234,7 +234,7 @@ func doSyncUpdates(controlCh chan<- interface{}) {
 // Sets a new max size. That can result in a GC being run if the new maxium size
 // is smaller than the cached size
 // This is a control command.
-func (c *Cache) SetMaxSize(size int64) {
+func (c *Cache[T]) SetMaxSize(size int64) {
 	done := make(chan struct{})
 	c.control <- setMaxSize{size: size, done: done}
 	<-done
@@ -243,7 +243,7 @@ func (c *Cache) SetMaxSize(size int64) {
 // Forces GC. There should be no reason to call this function, except from tests
 // which require synchronous GC.
 // This is a control command.
-func (c *Cache) GC() {
+func (c *Cache[T]) GC() {
 	done := make(chan struct{})
 	c.control <- gc{done: done}
 	<-done
@@ -253,25 +253,25 @@ func (c *Cache) GC() {
 // by the worker goroutine. It's meant to be called periodically for metrics, or
 // from tests.
 // This is a control command.
-func (c *Cache) GetSize() int64 {
+func (c *Cache[T]) GetSize() int64 {
 	res := make(chan int64)
 	c.control <- getSize{res}
 	return <-res
 }
 
-func (c *Cache) restart() {
-	c.deletables = make(chan *Item, c.deleteBuffer)
-	c.promotables = make(chan *Item, c.promoteBuffer)
+func (c *Cache[T]) restart() {
+	c.deletables = make(chan *Item[T], c.deleteBuffer)
+	c.promotables = make(chan *Item[T], c.promoteBuffer)
 	c.control = make(chan interface{})
 	go c.worker()
 }
 
-func (c *Cache) deleteItem(bucket *bucket, item *Item) {
+func (c *Cache[T]) deleteItem(bucket *bucket[T], item *Item[T]) {
 	bucket.delete(item.key) //stop other GETs from getting it
 	c.deletables <- item
 }
 
-func (c *Cache) set(key string, value interface{}, duration time.Duration, track bool) *Item {
+func (c *Cache[T]) set(key string, value T, duration time.Duration, track bool) *Item[T] {
 	item, existing := c.bucket(key).set(key, value, duration, track)
 	if existing != nil {
 		c.deletables <- existing
@@ -280,16 +280,16 @@ func (c *Cache) set(key string, value interface{}, duration time.Duration, track
 	return item
 }
 
-func (c *Cache) bucket(key string) *bucket {
+func (c *Cache[T]) bucket(key string) *bucket[T] {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
-func (c *Cache) worker() {
+func (c *Cache[T]) worker() {
 	defer close(c.control)
 	dropped := 0
-	promoteItem := func(item *Item) {
+	promoteItem := func(item *Item[T]) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
 		}
@@ -351,11 +351,11 @@ drain:
 // blocking. If some other goroutine sends an item on either channel after this method has
 // finished receiving, that's OK, because SyncUpdates only guarantees processing of values
 // that were already sent by the same goroutine.
-func doAllPendingPromotesAndDeletes(
-	promotables <-chan *Item,
-	promoteFn func(*Item),
-	deletables <-chan *Item,
-	deleteFn func(*Item),
+func doAllPendingPromotesAndDeletes[T any](
+	promotables <-chan *Item[T],
+	promoteFn func(*Item[T]),
+	deletables <-chan *Item[T],
+	deleteFn func(*Item[T]),
 ) {
 doAllPromotes:
 	for {
@@ -379,7 +379,7 @@ doAllDeletes:
 	}
 }
 
-func (c *Cache) doDelete(item *Item) {
+func (c *Cache[T]) doDelete(item *Item[T]) {
 	if item.element == nil {
 		item.promotions = -2
 	} else {
@@ -391,7 +391,7 @@ func (c *Cache) doDelete(item *Item) {
 	}
 }
 
-func (c *Cache) doPromote(item *Item) bool {
+func (c *Cache[T]) doPromote(item *Item[T]) bool {
 	//already deleted
 	if item.promotions == -2 {
 		return false
@@ -409,7 +409,7 @@ func (c *Cache) doPromote(item *Item) bool {
 	return true
 }
 
-func (c *Cache) gc() int {
+func (c *Cache[T]) gc() int {
 	dropped := 0
 	element := c.list.Back()
 
@@ -423,7 +423,7 @@ func (c *Cache) gc() int {
 			return dropped
 		}
 		prev := element.Prev()
-		item := element.Value.(*Item)
+		item := element.Value.(*Item[T])
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
 			c.size -= item.size

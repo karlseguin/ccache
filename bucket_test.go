@@ -33,7 +33,7 @@ func (_ *BucketTests) DeleteItemFromBucket() {
 
 func (_ *BucketTests) SetsANewBucketItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("spice", TestValue("flow"), time.Minute, false)
+	item, existing := bucket.set("spice", "flow", time.Minute, false)
 	assertValue(item, "flow")
 	item = bucket.get("spice")
 	assertValue(item, "flow")
@@ -42,29 +42,22 @@ func (_ *BucketTests) SetsANewBucketItem() {
 
 func (_ *BucketTests) SetsAnExistingItem() {
 	bucket := testBucket()
-	item, existing := bucket.set("power", TestValue("9001"), time.Minute, false)
+	item, existing := bucket.set("power", "9001", time.Minute, false)
 	assertValue(item, "9001")
 	item = bucket.get("power")
 	assertValue(item, "9001")
 	assertValue(existing, "9000")
 }
 
-func testBucket() *bucket {
-	b := &bucket{lookup: make(map[string]*Item)}
-	b.lookup["power"] = &Item{
+func testBucket() *bucket[string] {
+	b := &bucket[string]{lookup: make(map[string]*Item[string])}
+	b.lookup["power"] = &Item[string]{
 		key:   "power",
-		value: TestValue("9000"),
+		value: "9000",
 	}
 	return b
 }
 
-func assertValue(item *Item, expected string) {
-	value := item.value.(TestValue)
-	Expect(value).To.Equal(TestValue(expected))
-}
-
-type TestValue string
-
-func (v TestValue) Expires() time.Time {
-	return time.Now()
+func assertValue(item *Item[string], expected string) {
+	Expect(item.value).To.Equal(expected)
 }

@@ -17,13 +17,13 @@ func Test_LayeredCache(t *testing.T) {
 }
 
 func (_ *LayeredCacheTests) GetsANonExistantValue() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 	Expect(cache.ItemCount()).To.Equal(0)
 }
 
 func (_ *LayeredCacheTests) SetANewValue() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	cache.Set("spice", "flow", "a value", time.Minute)
 	Expect(cache.Get("spice", "flow").Value()).To.Equal("a value")
 	Expect(cache.Get("spice", "stop")).To.Equal(nil)
@@ -31,7 +31,7 @@ func (_ *LayeredCacheTests) SetANewValue() {
 }
 
 func (_ *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -46,22 +46,22 @@ func (_ *LayeredCacheTests) SetsMultipleValueWithinTheSameLayer() {
 }
 
 func (_ *LayeredCacheTests) ReplaceDoesNothingIfKeyDoesNotExist() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	Expect(cache.Replace("spice", "flow", "value-a")).To.Equal(false)
 	Expect(cache.Get("spice", "flow")).To.Equal(nil)
 }
 
 func (_ *LayeredCacheTests) ReplaceUpdatesTheValue() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	Expect(cache.Replace("spice", "flow", "value-b")).To.Equal(true)
-	Expect(cache.Get("spice", "flow").Value().(string)).To.Equal("value-b")
+	Expect(cache.Get("spice", "flow").Value()).To.Equal("value-b")
 	Expect(cache.ItemCount()).To.Equal(1)
 	//not sure how to test that the TTL hasn't changed sort of a sleep..
 }
 
 func (_ *LayeredCacheTests) DeletesAValue() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -74,7 +74,7 @@ func (_ *LayeredCacheTests) DeletesAValue() {
 }
 
 func (_ *LayeredCacheTests) DeletesAPrefix() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("spice", "aaa", "1", time.Minute)
@@ -98,7 +98,7 @@ func (_ *LayeredCacheTests) DeletesAPrefix() {
 }
 
 func (_ *LayeredCacheTests) DeletesAFunc() {
-	cache := newLayered()
+	cache := newLayered[int]()
 	Expect(cache.ItemCount()).To.Equal(0)
 
 	cache.Set("spice", "a", 1, time.Minute)
@@ -109,17 +109,17 @@ func (_ *LayeredCacheTests) DeletesAFunc() {
 	cache.Set("spice", "f", 6, time.Minute)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc("spice", func(key string, item *Item) bool {
+	Expect(cache.DeleteFunc("spice", func(key string, item *Item[int]) bool {
 		return false
 	})).To.Equal(0)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc("spice", func(key string, item *Item) bool {
-		return item.Value().(int) < 4
+	Expect(cache.DeleteFunc("spice", func(key string, item *Item[int]) bool {
+		return item.Value() < 4
 	})).To.Equal(2)
 	Expect(cache.ItemCount()).To.Equal(4)
 
-	Expect(cache.DeleteFunc("spice", func(key string, item *Item) bool {
+	Expect(cache.DeleteFunc("spice", func(key string, item *Item[int]) bool {
 		return key == "d"
 	})).To.Equal(1)
 	Expect(cache.ItemCount()).To.Equal(3)
@@ -128,13 +128,13 @@ func (_ *LayeredCacheTests) DeletesAFunc() {
 
 func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
 	onDeleteFnCalled := int32(0)
-	onDeleteFn := func(item *Item) {
+	onDeleteFn := func(item *Item[string]) {
 		if item.group == "spice" && item.key == "flow" {
 			atomic.AddInt32(&onDeleteFnCalled, 1)
 		}
 	}
 
-	cache := Layered(Configure().OnDelete(onDeleteFn))
+	cache := Layered[string](Configure[string]().OnDelete(onDeleteFn))
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -152,7 +152,7 @@ func (_ *LayeredCacheTests) OnDeleteCallbackCalled() {
 }
 
 func (_ *LayeredCacheTests) DeletesALayer() {
-	cache := newLayered()
+	cache := newLayered[string]()
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -164,7 +164,7 @@ func (_ *LayeredCacheTests) DeletesALayer() {
 }
 
 func (_ LayeredCacheTests) GCsTheOldestItems() {
-	cache := Layered(Configure().ItemsToPrune(10))
+	cache := Layered[int](Configure[int]().ItemsToPrune(10))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -181,7 +181,7 @@ func (_ LayeredCacheTests) GCsTheOldestItems() {
 }
 
 func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
-	cache := Layered(Configure().ItemsToPrune(10).GetsPerPromote(1))
+	cache := Layered[int](Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
@@ -195,7 +195,7 @@ func (_ LayeredCacheTests) PromotedItemsDontGetPruned() {
 }
 
 func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
-	cache := Layered(Configure().ItemsToPrune(10).Track())
+	cache := Layered[int](Configure[int]().ItemsToPrune(10).Track())
 	item0 := cache.TrackingSet("0", "a", 0, time.Minute)
 	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -213,7 +213,7 @@ func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
-	cache := Layered(Configure().MaxSize(5).ItemsToPrune(1))
+	cache := Layered[int](Configure[int]().MaxSize(5).ItemsToPrune(1))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -231,7 +231,7 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
 }
 
 func (_ LayeredCacheTests) ResizeOnTheFly() {
-	cache := Layered(Configure().MaxSize(9).ItemsToPrune(1))
+	cache := Layered[int](Configure[int]().MaxSize(9).ItemsToPrune(1))
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
@@ -265,7 +265,7 @@ func (_ LayeredCacheTests) ResizeOnTheFly() {
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
-	cache := Layered(Configure().MaxSize(9).ItemsToPrune(2))
+	cache := Layered[*SizedItem](Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set("pri", strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
@@ -274,11 +274,11 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFullBySizer() {
 	Expect(cache.Get("pri", "1")).To.Equal(nil)
 	Expect(cache.Get("pri", "2")).To.Equal(nil)
 	Expect(cache.Get("pri", "3")).To.Equal(nil)
-	Expect(cache.Get("pri", "4").Value().(*SizedItem).id).To.Equal(4)
+	Expect(cache.Get("pri", "4").Value().id).To.Equal(4)
 }
 
 func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
-	cache := Layered(Configure())
+	cache := Layered[*SizedItem](Configure[*SizedItem]())
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	cache.SyncUpdates()
@@ -299,7 +299,7 @@ func (_ LayeredCacheTests) SetUpdatesSizeOnDelta() {
 }
 
 func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
-	cache := Layered(Configure())
+	cache := Layered[*SizedItem](Configure[*SizedItem]())
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
@@ -309,7 +309,7 @@ func (_ LayeredCacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 }
 
 func (_ LayeredCacheTests) ReplaceChangesSize() {
-	cache := Layered(Configure())
+	cache := Layered[*SizedItem](Configure[*SizedItem]())
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 
@@ -327,43 +327,43 @@ func (_ LayeredCacheTests) ReplaceChangesSize() {
 }
 
 func (_ LayeredCacheTests) EachFunc() {
-	cache := Layered(Configure().MaxSize(3).ItemsToPrune(1))
-	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{})
+	cache := Layered[int](Configure[int]().MaxSize(3).ItemsToPrune(1))
+	Expect(forEachKeysLayered[int](cache, "1")).To.Equal([]string{})
 
 	cache.Set("1", "a", 1, time.Minute)
-	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a"})
+	Expect(forEachKeysLayered[int](cache, "1")).To.Equal([]string{"a"})
 
 	cache.Set("1", "b", 2, time.Minute)
 	cache.SyncUpdates()
-	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a", "b"})
+	Expect(forEachKeysLayered[int](cache, "1")).To.Equal([]string{"a", "b"})
 
 	cache.Set("1", "c", 3, time.Minute)
 	cache.SyncUpdates()
-	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"a", "b", "c"})
+	Expect(forEachKeysLayered[int](cache, "1")).To.Equal([]string{"a", "b", "c"})
 
 	cache.Set("1", "d", 4, time.Minute)
 	cache.SyncUpdates()
-	Expect(forEachKeysLayered(cache, "1")).To.Equal([]string{"b", "c", "d"})
+	Expect(forEachKeysLayered[int](cache, "1")).To.Equal([]string{"b", "c", "d"})
 
 	// iteration is non-deterministic, all we know for sure is "stop" should not be in there
 	cache.Set("1", "stop", 5, time.Minute)
 	cache.SyncUpdates()
-	Expect(forEachKeysLayered(cache, "1")).Not.To.Contain("stop")
+	Expect(forEachKeysLayered[int](cache, "1")).Not.To.Contain("stop")
 
 	cache.Set("1", "e", 6, time.Minute)
 	cache.SyncUpdates()
-	Expect(forEachKeysLayered(cache, "1")).Not.To.Contain("stop")
+	Expect(forEachKeysLayered[int](cache, "1")).Not.To.Contain("stop")
 }
 
-func newLayered() *LayeredCache {
-	c := Layered(Configure())
+func newLayered[T any]() *LayeredCache[T] {
+	c := Layered[T](Configure[T]())
 	c.Clear()
 	return c
 }
 
-func forEachKeysLayered(cache *LayeredCache, primary string) []string {
+func forEachKeysLayered[T any](cache *LayeredCache[T], primary string) []string {
 	keys := make([]string, 0, 10)
-	cache.ForEachFunc(primary, func(key string, i *Item) bool {
+	cache.ForEachFunc(primary, func(key string, i *Item[T]) bool {
 		if key == "stop" {
 			return false
 		}

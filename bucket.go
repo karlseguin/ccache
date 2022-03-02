@@ -6,18 +6,18 @@ import (
 	"time"
 )
 
-type bucket struct {
+type bucket[T any] struct {
 	sync.RWMutex
-	lookup map[string]*Item
+	lookup map[string]*Item[T]
 }
 
-func (b *bucket) itemCount() int {
+func (b *bucket[T]) itemCount() int {
 	b.RLock()
 	defer b.RUnlock()
 	return len(b.lookup)
 }
 
-func (b *bucket) forEachFunc(matches func(key string, item *Item) bool) bool {
+func (b *bucket[T]) forEachFunc(matches func(key string, item *Item[T]) bool) bool {
 	lookup := b.lookup
 	b.RLock()
 	defer b.RUnlock()
@@ -29,13 +29,13 @@ func (b *bucket) forEachFunc(matches func(key string, item *Item) bool) bool {
 	return true
 }
 
-func (b *bucket) get(key string) *Item {
+func (b *bucket[T]) get(key string) *Item[T] {
 	b.RLock()
 	defer b.RUnlock()
 	return b.lookup[key]
 }
 
-func (b *bucket) set(key string, value interface{}, duration time.Duration, track bool) (*Item, *Item) {
+func (b *bucket[T]) set(key string, value T, duration time.Duration, track bool) (*Item[T], *Item[T]) {
 	expires := time.Now().Add(duration).UnixNano()
 	item := newItem(key, value, expires, track)
 	b.Lock()
@@ -45,7 +45,7 @@ func (b *bucket) set(key string, value interface{}, duration time.Duration, trac
 	return item, existing
 }
 
-func (b *bucket) delete(key string) *Item {
+func (b *bucket[T]) delete(key string) *Item[T] {
 	b.Lock()
 	item := b.lookup[key]
 	delete(b.lookup, key)
@@ -66,9 +66,9 @@ func (b *bucket) delete(key string) *Item {
 // the item from the map. I'm pretty sure this is 100% fine, but it is unique.
 // (We do this so that the write to the channel is under the read lock and not the
 // write lock)
-func (b *bucket) deleteFunc(matches func(key string, item *Item) bool, deletables chan *Item) int {
+func (b *bucket[T]) deleteFunc(matches func(key string, item *Item[T]) bool, deletables chan *Item[T]) int {
 	lookup := b.lookup
-	items := make([]*Item, 0)
+	items := make([]*Item[T], 0)
 
 	b.RLock()
 	for key, item := range lookup {
@@ -92,14 +92,14 @@ func (b *bucket) deleteFunc(matches func(key string, item *Item) bool, deletable
 	return len(items)
 }
 
-func (b *bucket) deletePrefix(prefix string, deletables chan *Item) int {
-	return b.deleteFunc(func(key string, item *Item) bool {
+func (b *bucket[T]) deletePrefix(prefix string, deletables chan *Item[T]) int {
+	return b.deleteFunc(func(key string, item *Item[T]) bool {
 		return strings.HasPrefix(key, prefix)
 	}, deletables)
 }
 
-func (b *bucket) clear() {
+func (b *bucket[T]) clear() {
 	b.Lock()
-	b.lookup = make(map[string]*Item)
+	b.lookup = make(map[string]*Item[T])
 	b.Unlock()
 }

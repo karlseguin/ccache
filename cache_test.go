@@ -17,7 +17,7 @@ func Test_Cache(t *testing.T) {
 }
 
 func (_ CacheTests) DeletesAValue() {
-	cache := New(Configure())
+	cache := New[string](Configure[string]())
 	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
@@ -32,7 +32,7 @@ func (_ CacheTests) DeletesAValue() {
 }
 
 func (_ CacheTests) DeletesAPrefix() {
-	cache := New(Configure())
+	cache := New[string](Configure[string]())
 	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
@@ -56,7 +56,7 @@ func (_ CacheTests) DeletesAPrefix() {
 }
 
 func (_ CacheTests) DeletesAFunc() {
-	cache := New(Configure())
+	cache := New[int](Configure[int]())
 	defer cache.Stop()
 	Expect(cache.ItemCount()).To.Equal(0)
 
@@ -68,17 +68,17 @@ func (_ CacheTests) DeletesAFunc() {
 	cache.Set("f", 6, time.Minute)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
+	Expect(cache.DeleteFunc(func(key string, item *Item[int]) bool {
 		return false
 	})).To.Equal(0)
 	Expect(cache.ItemCount()).To.Equal(6)
 
-	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
-		return item.Value().(int) < 4
+	Expect(cache.DeleteFunc(func(key string, item *Item[int]) bool {
+		return item.Value() < 4
 	})).To.Equal(3)
 	Expect(cache.ItemCount()).To.Equal(3)
 
-	Expect(cache.DeleteFunc(func(key string, item *Item) bool {
+	Expect(cache.DeleteFunc(func(key string, item *Item[int]) bool {
 		return key == "d"
 	})).To.Equal(1)
 	Expect(cache.ItemCount()).To.Equal(2)
@@ -87,13 +87,13 @@ func (_ CacheTests) DeletesAFunc() {
 
 func (_ CacheTests) OnDeleteCallbackCalled() {
 	onDeleteFnCalled := int32(0)
-	onDeleteFn := func(item *Item) {
+	onDeleteFn := func(item *Item[string]) {
 		if item.key == "spice" {
 			atomic.AddInt32(&onDeleteFnCalled, 1)
 		}
 	}
 
-	cache := New(Configure().OnDelete(onDeleteFn))
+	cache := New[string](Configure[string]().OnDelete(onDeleteFn))
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
 
@@ -108,8 +108,8 @@ func (_ CacheTests) OnDeleteCallbackCalled() {
 }
 
 func (_ CacheTests) FetchesExpiredItems() {
-	cache := New(Configure())
-	fn := func() (interface{}, error) { return "moo-moo", nil }
+	cache := New[string](Configure[string]())
+	fn := func() (string, error) { return "moo-moo", nil }
 
 	cache.Set("beef", "moo", time.Second*-1)
 	Expect(cache.Get("beef").Value()).To.Equal("moo")
@@ -119,7 +119,7 @@ func (_ CacheTests) FetchesExpiredItems() {
 }
 
 func (_ CacheTests) GCsTheOldestItems() {
-	cache := New(Configure().ItemsToPrune(10))
+	cache := New[int](Configure[int]().ItemsToPrune(10))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -131,7 +131,7 @@ func (_ CacheTests) GCsTheOldestItems() {
 }
 
 func (_ CacheTests) PromotedItemsDontGetPruned() {
-	cache := New(Configure().ItemsToPrune(10).GetsPerPromote(1))
+	cache := New[int](Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -145,7 +145,7 @@ func (_ CacheTests) PromotedItemsDontGetPruned() {
 }
 
 func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
-	cache := New(Configure().ItemsToPrune(11).Track())
+	cache := New[int](Configure[int]().ItemsToPrune(11).Track())
 	item0 := cache.TrackingSet("0", 0, time.Minute)
 	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
@@ -164,13 +164,13 @@ func (_ CacheTests) TrackerDoesNotCleanupHeldInstance() {
 
 func (_ CacheTests) RemovesOldestItemWhenFull() {
 	onDeleteFnCalled := false
-	onDeleteFn := func(item *Item) {
+	onDeleteFn := func(item *Item[int]) {
 		if item.key == "0" {
 			onDeleteFnCalled = true
 		}
 	}
 
-	cache := New(Configure().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
+	cache := New[int](Configure[int]().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -183,7 +183,7 @@ func (_ CacheTests) RemovesOldestItemWhenFull() {
 }
 
 func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
-	cache := New(Configure().MaxSize(9).ItemsToPrune(2))
+	cache := New[*SizedItem](Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
@@ -192,13 +192,13 @@ func (_ CacheTests) RemovesOldestItemWhenFullBySizer() {
 	Expect(cache.Get("1")).To.Equal(nil)
 	Expect(cache.Get("2")).To.Equal(nil)
 	Expect(cache.Get("3")).To.Equal(nil)
-	Expect(cache.Get("4").Value().(*SizedItem).id).To.Equal(4)
+	Expect(cache.Get("4").Value().id).To.Equal(4)
 	Expect(cache.GetDropped()).To.Equal(4)
 	Expect(cache.GetDropped()).To.Equal(0)
 }
 
 func (_ CacheTests) SetUpdatesSizeOnDelta() {
-	cache := New(Configure())
+	cache := New[*SizedItem](Configure[*SizedItem]())
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	cache.SyncUpdates()
@@ -218,7 +218,7 @@ func (_ CacheTests) SetUpdatesSizeOnDelta() {
 }
 
 func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
-	cache := New(Configure())
+	cache := New[*SizedItem](Configure[*SizedItem]())
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
@@ -228,7 +228,7 @@ func (_ CacheTests) ReplaceDoesNotchangeSizeIfNotSet() {
 }
 
 func (_ CacheTests) ReplaceChangesSize() {
-	cache := New(Configure())
+	cache := New[*SizedItem](Configure[*SizedItem]())
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 
@@ -246,7 +246,7 @@ func (_ CacheTests) ReplaceChangesSize() {
 }
 
 func (_ CacheTests) ResizeOnTheFly() {
-	cache := New(Configure().MaxSize(9).ItemsToPrune(1))
+	cache := New[int](Configure[int]().MaxSize(9).ItemsToPrune(1))
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -278,8 +278,8 @@ func (_ CacheTests) ResizeOnTheFly() {
 }
 
 func (_ CacheTests) ForEachFunc() {
-	cache := New(Configure().MaxSize(3).ItemsToPrune(1))
-	Expect(forEachKeys(cache)).To.Equal([]string{})
+	cache := New[int](Configure[int]().MaxSize(3).ItemsToPrune(1))
+	Expect(forEachKeys[int](cache)).To.Equal([]string{})
 
 	cache.Set("1", 1, time.Minute)
 	Expect(forEachKeys(cache)).To.Equal([]string{"1"})
@@ -314,9 +314,9 @@ func (s *SizedItem) Size() int64 {
 	return s.s
 }
 
-func forEachKeys(cache *Cache) []string {
+func forEachKeys[T any](cache *Cache[T]) []string {
 	keys := make([]string, 0, 10)
-	cache.ForEachFunc(func(key string, i *Item) bool {
+	cache.ForEachFunc(func(key string, i *Item[T]) bool {
 		if key == "stop" {
 			return false
 		}
