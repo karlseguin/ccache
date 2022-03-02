@@ -11,11 +11,7 @@ Unless otherwise stated, all methods are thread-safe.
 
 ## Setup
 
-First, download the project:
-
-```go
-    go get github.com/karlseguin/ccache/v2
-```
+The generic version is not ready to be used yet.
 
 ## Configuration
 Next, import and create a `Cache` instance:
@@ -23,16 +19,16 @@ Next, import and create a `Cache` instance:
 
 ```go
 import (
-  "github.com/karlseguin/ccache/v2"
+  "github.com/karlseguin/ccache/v3"
 )
 
-var cache = ccache.New(ccache.Configure())
+var cache = ccache.New[string](ccache.Configure[string]())
 ```
 
 `Configure` exposes a chainable API:
 
 ```go
-var cache = ccache.New(ccache.Configure().MaxSize(1000).ItemsToPrune(100))
+var cache = ccache.New[int](ccache.Configure[int]().MaxSize(1000).ItemsToPrune(100))
 ```
 
 The most likely configuration options to tweak are:
@@ -57,12 +53,12 @@ item := cache.Get("user:4")
 if item == nil {
   //handle
 } else {
-  user := item.Value().(*User)
+  user := item.Value()
 }
 ```
 The returned `*Item` exposes a number of methods:
 
-* `Value() interface{}` - the value cached
+* `Value() T` - the value cached
 * `Expired() bool` - whether the item is expired or not
 * `TTL() time.Duration` - the duration before the item expires (will be a negative value for expired items)
 * `Expires() time.Time` - the time the item will expire
@@ -80,7 +76,7 @@ cache.Set("user:4", user, time.Minute * 10)
 There's also a `Fetch` which mixes a `Get` and a `Set`:
 
 ```go
-item, err := cache.Fetch("user:4", time.Minute * 10, func() (interface{}, error) {
+item, err := cache.Fetch("user:4", time.Minute * 10, func() (*User, error) {
   //code to fetch the data incase of a miss
   //should return the data to cache and the error, if any
 })
@@ -163,7 +159,7 @@ CCache's `LayeredCache` stores and retrieves values by both a primary and second
 `LayeredCache` takes the same configuration object as the main cache, exposes the same optional tracking capabilities, but exposes a slightly different API:
 
 ```go
-cache := ccache.Layered(ccache.Configure())
+cache := ccache.Layered[string](ccache.Configure[string]())
 
 cache.Set("/users/goku", "type:json", "{value_to_cache}", time.Minute * 5)
 cache.Set("/users/goku", "type:xml", "<value_to_cache>", time.Minute * 5)
@@ -182,7 +178,7 @@ cache.DeleteAll("/users/goku")
 In some cases, when using a `LayeredCache`, it may be desirable to always be acting on the secondary portion of the cache entry. This could be the case where the primary key is used as a key elsewhere in your code. The `SecondaryCache` is retrieved with:
 
 ```go
-cache := ccache.Layered(ccache.Configure())
+cache := ccache.Layered[string](ccache.Configure[string]())
 sCache := cache.GetOrCreateSecondaryCache("/users/goku")
 sCache.Set("type:json", "{value_to_cache}", time.Minute * 5)
 ```
