@@ -1,4 +1,9 @@
 # CCache
+
+Generic version is on the way:
+https://github.com/karlseguin/ccache/tree/generic
+
+
 CCache is an LRU Cache, written in Go, focused on supporting high concurrency.
 
 Lock contention on the list is reduced by:
