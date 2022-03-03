@@ -158,7 +158,7 @@ func Test_LayedCache_DeletesALayer(t *testing.T) {
 }
 
 func Test_LayeredCache_GCsTheOldestItems(t *testing.T) {
-	cache := Layered[int](Configure[int]().ItemsToPrune(10))
+	cache := Layered(Configure[int]().ItemsToPrune(10))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -175,7 +175,7 @@ func Test_LayeredCache_GCsTheOldestItems(t *testing.T) {
 }
 
 func Test_LayeredCache_PromotedItemsDontGetPruned(t *testing.T) {
-	cache := Layered[int](Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
+	cache := Layered(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
@@ -189,7 +189,7 @@ func Test_LayeredCache_PromotedItemsDontGetPruned(t *testing.T) {
 }
 
 func Test_LayeredCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
-	cache := Layered[int](Configure[int]().ItemsToPrune(10).Track())
+	cache := Layered(Configure[int]().ItemsToPrune(10).Track())
 	item0 := cache.TrackingSet("0", "a", 0, time.Minute)
 	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -207,7 +207,7 @@ func Test_LayeredCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
 }
 
 func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
-	cache := Layered[int](Configure[int]().MaxSize(5).ItemsToPrune(1))
+	cache := Layered(Configure[int]().MaxSize(5).ItemsToPrune(1))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -225,7 +225,7 @@ func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
 }
 
 func Test_LayeredCache_ResizeOnTheFly(t *testing.T) {
-	cache := Layered[int](Configure[int]().MaxSize(9).ItemsToPrune(1))
+	cache := Layered(Configure[int]().MaxSize(9).ItemsToPrune(1))
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
@@ -259,7 +259,7 @@ func Test_LayeredCache_ResizeOnTheFly(t *testing.T) {
 }
 
 func Test_LayeredCache_RemovesOldestItemWhenFullBySizer(t *testing.T) {
-	cache := Layered[*SizedItem](Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
+	cache := Layered(Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set("pri", strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
@@ -272,7 +272,7 @@ func Test_LayeredCache_RemovesOldestItemWhenFullBySizer(t *testing.T) {
 }
 
 func Test_LayeredCache_SetUpdatesSizeOnDelta(t *testing.T) {
-	cache := Layered[*SizedItem](Configure[*SizedItem]())
+	cache := Layered(Configure[*SizedItem]())
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	cache.SyncUpdates()
@@ -293,7 +293,7 @@ func Test_LayeredCache_SetUpdatesSizeOnDelta(t *testing.T) {
 }
 
 func Test_LayeredCache_ReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
-	cache := Layered[*SizedItem](Configure[*SizedItem]())
+	cache := Layered(Configure[*SizedItem]())
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
@@ -303,7 +303,7 @@ func Test_LayeredCache_ReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
 }
 
 func Test_LayeredCache_ReplaceChangesSize(t *testing.T) {
-	cache := Layered[*SizedItem](Configure[*SizedItem]())
+	cache := Layered(Configure[*SizedItem]())
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 
@@ -321,7 +321,7 @@ func Test_LayeredCache_ReplaceChangesSize(t *testing.T) {
 }
 
 func Test_LayeredCache_EachFunc(t *testing.T) {
-	cache := Layered[int](Configure[int]().MaxSize(3).ItemsToPrune(1))
+	cache := Layered(Configure[int]().MaxSize(3).ItemsToPrune(1))
 	assert.List(t, forEachKeysLayered[int](cache, "1"), []string{})
 
 	cache.Set("1", "a", 1, time.Minute)

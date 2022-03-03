@@ -84,7 +84,7 @@ func Test_SecondaryCache_FetchReturnsANewValue(t *testing.T) {
 }
 
 func Test_SecondaryCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
-	cache := Layered[int](Configure[int]().ItemsToPrune(10).Track())
+	cache := Layered(Configure[int]().ItemsToPrune(10).Track())
 	for i := 0; i < 10; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}

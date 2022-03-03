@@ -11,7 +11,7 @@ import (
 )
 
 func Test_CacheDeletesAValue(t *testing.T) {
-	cache := New[string](Configure[string]())
+	cache := New(Configure[string]())
 	defer cache.Stop()
 	assert.Equal(t, cache.ItemCount(), 0)
 
@@ -26,7 +26,7 @@ func Test_CacheDeletesAValue(t *testing.T) {
 }
 
 func Test_CacheDeletesAPrefix(t *testing.T) {
-	cache := New[string](Configure[string]())
+	cache := New(Configure[string]())
 	defer cache.Stop()
 	assert.Equal(t, cache.ItemCount(), 0)
 
@@ -50,7 +50,7 @@ func Test_CacheDeletesAPrefix(t *testing.T) {
 }
 
 func Test_CacheDeletesAFunc(t *testing.T) {
-	cache := New[int](Configure[int]())
+	cache := New(Configure[int]())
 	defer cache.Stop()
 	assert.Equal(t, cache.ItemCount(), 0)
 
@@ -87,7 +87,7 @@ func Test_CacheOnDeleteCallbackCalled(t *testing.T) {
 		}
 	}
 
-	cache := New[string](Configure[string]().OnDelete(onDeleteFn))
+	cache := New(Configure[string]().OnDelete(onDeleteFn))
 	cache.Set("spice", "flow", time.Minute)
 	cache.Set("worm", "sand", time.Minute)
 
@@ -102,7 +102,7 @@ func Test_CacheOnDeleteCallbackCalled(t *testing.T) {
 }
 
 func Test_CacheFetchesExpiredItems(t *testing.T) {
-	cache := New[string](Configure[string]())
+	cache := New(Configure[string]())
 	fn := func() (string, error) { return "moo-moo", nil }
 
 	cache.Set("beef", "moo", time.Second*-1)
@@ -113,7 +113,7 @@ func Test_CacheFetchesExpiredItems(t *testing.T) {
 }
 
 func Test_CacheGCsTheOldestItems(t *testing.T) {
-	cache := New[int](Configure[int]().ItemsToPrune(10))
+	cache := New(Configure[int]().ItemsToPrune(10))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -125,7 +125,7 @@ func Test_CacheGCsTheOldestItems(t *testing.T) {
 }
 
 func Test_CachePromotedItemsDontGetPruned(t *testing.T) {
-	cache := New[int](Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
+	cache := New(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
 	for i := 0; i < 500; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -139,7 +139,7 @@ func Test_CachePromotedItemsDontGetPruned(t *testing.T) {
 }
 
 func Test_CacheTrackerDoesNotCleanupHeldInstance(t *testing.T) {
-	cache := New[int](Configure[int]().ItemsToPrune(11).Track())
+	cache := New(Configure[int]().ItemsToPrune(11).Track())
 	item0 := cache.TrackingSet("0", 0, time.Minute)
 	for i := 1; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
@@ -164,7 +164,7 @@ func Test_CacheRemovesOldestItemWhenFull(t *testing.T) {
 		}
 	}
 
-	cache := New[int](Configure[int]().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
+	cache := New(Configure[int]().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -177,7 +177,7 @@ func Test_CacheRemovesOldestItemWhenFull(t *testing.T) {
 }
 
 func Test_CacheRemovesOldestItemWhenFullBySizer(t *testing.T) {
-	cache := New[*SizedItem](Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
+	cache := New(Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
@@ -192,7 +192,7 @@ func Test_CacheRemovesOldestItemWhenFullBySizer(t *testing.T) {
 }
 
 func Test_CacheSetUpdatesSizeOnDelta(t *testing.T) {
-	cache := New[*SizedItem](Configure[*SizedItem]())
+	cache := New(Configure[*SizedItem]())
 	cache.Set("a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("b", &SizedItem{0, 3}, time.Minute)
 	cache.SyncUpdates()
@@ -212,7 +212,7 @@ func Test_CacheSetUpdatesSizeOnDelta(t *testing.T) {
 }
 
 func Test_CacheReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
-	cache := New[*SizedItem](Configure[*SizedItem]())
+	cache := New(Configure[*SizedItem]())
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("3", &SizedItem{1, 2}, time.Minute)
@@ -222,7 +222,7 @@ func Test_CacheReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
 }
 
 func Test_CacheReplaceChangesSize(t *testing.T) {
-	cache := New[*SizedItem](Configure[*SizedItem]())
+	cache := New(Configure[*SizedItem]())
 	cache.Set("1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("2", &SizedItem{1, 2}, time.Minute)
 
@@ -240,7 +240,7 @@ func Test_CacheReplaceChangesSize(t *testing.T) {
 }
 
 func Test_CacheResizeOnTheFly(t *testing.T) {
-	cache := New[int](Configure[int]().MaxSize(9).ItemsToPrune(1))
+	cache := New(Configure[int]().MaxSize(9).ItemsToPrune(1))
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), i, time.Minute)
 	}
@@ -272,7 +272,7 @@ func Test_CacheResizeOnTheFly(t *testing.T) {
 }
 
 func Test_CacheForEachFunc(t *testing.T) {
-	cache := New[int](Configure[int]().MaxSize(3).ItemsToPrune(1))
+	cache := New(Configure[int]().MaxSize(3).ItemsToPrune(1))
 	assert.List(t, forEachKeys[int](cache), []string{})
 
 	cache.Set("1", 1, time.Minute)

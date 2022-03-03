@@ -22,13 +22,15 @@ import (
   "github.com/karlseguin/ccache/v3"
 )
 
-var cache = ccache.New[string](ccache.Configure[string]())
+// create a cache with string values
+var cache = ccache.New(ccache.Configure[string]())
 ```
 
 `Configure` exposes a chainable API:
 
 ```go
-var cache = ccache.New[int](ccache.Configure[int]().MaxSize(1000).ItemsToPrune(100))
+// creates a cache with int values
+var cache = ccache.New(ccache.Configure[int]().MaxSize(1000).ItemsToPrune(100))
 ```
 
 The most likely configuration options to tweak are:
@@ -133,7 +135,7 @@ CCache supports a special tracking mode which is meant to be used in conjunction
 When you configure your cache with `Track()`:
 
 ```go
-cache = ccache.New(ccache.Configure().Track())
+cache = ccache.New(ccache.Configure[int]().Track())
 ```
 
 The items retrieved via `TrackingGet` will not be eligible for purge until `Release` is called on them:
@@ -159,7 +161,7 @@ CCache's `LayeredCache` stores and retrieves values by both a primary and second
 `LayeredCache` takes the same configuration object as the main cache, exposes the same optional tracking capabilities, but exposes a slightly different API:
 
 ```go
-cache := ccache.Layered[string](ccache.Configure[string]())
+cache := ccache.Layered(ccache.Configure[string]())
 
 cache.Set("/users/goku", "type:json", "{value_to_cache}", time.Minute * 5)
 cache.Set("/users/goku", "type:xml", "<value_to_cache>", time.Minute * 5)
@@ -178,7 +180,7 @@ cache.DeleteAll("/users/goku")
 In some cases, when using a `LayeredCache`, it may be desirable to always be acting on the secondary portion of the cache entry. This could be the case where the primary key is used as a key elsewhere in your code. The `SecondaryCache` is retrieved with:
 
 ```go
-cache := ccache.Layered[string](ccache.Configure[string]())
+cache := ccache.Layered(ccache.Configure[string]())
 sCache := cache.GetOrCreateSecondaryCache("/users/goku")
 sCache.Set("type:json", "{value_to_cache}", time.Minute * 5)
 ```
