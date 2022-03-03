@@ -1,7 +1,6 @@
 package ccache
 
 import (
-	"container/list"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -28,7 +27,7 @@ type Item[T any] struct {
 	expires    int64
 	size       int64
 	value      T
-	element    *list.Element
+	node       *Node[*Item[T]]
 }
 
 func newItem[T any](key string, value T, expires int64, track bool) *Item[T] {

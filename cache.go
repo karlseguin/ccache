@@ -2,7 +2,6 @@
 package ccache
 
 import (
-	"container/list"
 	"hash/fnv"
 	"sync/atomic"
 	"time"
@@ -37,7 +36,7 @@ type gc struct {
 
 type Cache[T any] struct {
 	*Configuration[T]
-	list        *list.List
+	list        *List[*Item[T]]
 	size        int64
 	buckets     []*bucket[T]
 	bucketMask  uint32
@@ -50,7 +49,7 @@ type Cache[T any] struct {
 // See ccache.Configure() for creating a configuration
 func New[T any](config *Configuration[T]) *Cache[T] {
 	c := &Cache[T]{
-		list:          list.New(),
+		list:          NewList[*Item[T]](),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*bucket[T], config.buckets),
@@ -319,7 +318,7 @@ func (c *Cache[T]) worker() {
 					bucket.clear()
 				}
 				c.size = 0
-				c.list = list.New()
+				c.list = NewList[*Item[T]]()
 				msg.done <- struct{}{}
 			case getSize:
 				msg.res <- c.size
@@ -380,14 +379,14 @@ doAllDeletes:
 }
 
 func (c *Cache[T]) doDelete(item *Item[T]) {
-	if item.element == nil {
+	if item.node == nil {
 		item.promotions = -2
 	} else {
 		c.size -= item.size
 		if c.onDelete != nil {
 			c.onDelete(item)
 		}
-		c.list.Remove(item.element)
+		c.list.Remove(item.node)
 	}
 }
 
@@ -396,22 +395,22 @@ func (c *Cache[T]) doPromote(item *Item[T]) bool {
 	if item.promotions == -2 {
 		return false
 	}
-	if item.element != nil { //not a new item
+	if item.node != nil { //not a new item
 		if item.shouldPromote(c.getsPerPromote) {
-			c.list.MoveToFront(item.element)
+			c.list.MoveToFront(item.node)
 			item.promotions = 0
 		}
 		return false
 	}
 
 	c.size += item.size
-	item.element = c.list.PushFront(item)
+	item.node = c.list.Insert(item)
 	return true
 }
 
 func (c *Cache[T]) gc() int {
 	dropped := 0
-	element := c.list.Back()
+	node := c.list.Tail
 
 	itemsToPrune := int64(c.itemsToPrune)
 	if min := c.size - c.maxSize; min > itemsToPrune {
@@ -419,22 +418,22 @@ func (c *Cache[T]) gc() int {
 	}
 
 	for i := int64(0); i < itemsToPrune; i++ {
-		if element == nil {
+		if node == nil {
 			return dropped
 		}
-		prev := element.Prev()
-		item := element.Value.(*Item[T])
+		prev := node.Prev
+		item := node.Value
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
 			c.size -= item.size
-			c.list.Remove(element)
+			c.list.Remove(node)
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
 			dropped += 1
 			item.promotions = -2
 		}
-		element = prev
+		node = prev
 	}
 	return dropped
 }

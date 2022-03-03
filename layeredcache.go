@@ -2,7 +2,6 @@
 package ccache
 
 import (
-	"container/list"
 	"hash/fnv"
 	"sync/atomic"
 	"time"
@@ -10,7 +9,7 @@ import (
 
 type LayeredCache[T any] struct {
 	*Configuration[T]
-	list        *list.List
+	list        *List[*Item[T]]
 	buckets     []*layeredBucket[T]
 	bucketMask  uint32
 	size        int64
@@ -34,7 +33,7 @@ type LayeredCache[T any] struct {
 // See ccache.Configure() for creating a configuration
 func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 	c := &LayeredCache[T]{
-		list:          list.New(),
+		list:          NewList[*Item[T]](),
 		Configuration: config,
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket[T], config.buckets),
@@ -259,14 +258,14 @@ func (c *LayeredCache[T]) worker() {
 		}
 	}
 	deleteItem := func(item *Item[T]) {
-		if item.element == nil {
+		if item.node == nil {
 			atomic.StoreInt32(&item.promotions, -2)
 		} else {
 			c.size -= item.size
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
-			c.list.Remove(item.element)
+			c.list.Remove(item.node)
 		}
 	}
 	for {
@@ -294,7 +293,7 @@ func (c *LayeredCache[T]) worker() {
 					bucket.clear()
 				}
 				c.size = 0
-				c.list = list.New()
+				c.list = NewList[*Item[T]]()
 				msg.done <- struct{}{}
 			case getSize:
 				msg.res <- c.size
@@ -315,20 +314,20 @@ func (c *LayeredCache[T]) doPromote(item *Item[T]) bool {
 	if atomic.LoadInt32(&item.promotions) == -2 {
 		return false
 	}
-	if item.element != nil { //not a new item
+	if item.node != nil { //not a new item
 		if item.shouldPromote(c.getsPerPromote) {
-			c.list.MoveToFront(item.element)
+			c.list.MoveToFront(item.node)
 			atomic.StoreInt32(&item.promotions, 0)
 		}
 		return false
 	}
 	c.size += item.size
-	item.element = c.list.PushFront(item)
+	item.node = c.list.Insert(item)
 	return true
 }
 
 func (c *LayeredCache[T]) gc() int {
-	element := c.list.Back()
+	node := c.list.Tail
 	dropped := 0
 	itemsToPrune := int64(c.itemsToPrune)
 
@@ -337,19 +336,19 @@ func (c *LayeredCache[T]) gc() int {
 	}
 
 	for i := int64(0); i < itemsToPrune; i++ {
-		if element == nil {
+		if node == nil {
 			return dropped
 		}
-		prev := element.Prev()
-		item := element.Value.(*Item[T])
+		prev := node.Prev
+		item := node.Value
 		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.group).delete(item.group, item.key)
 			c.size -= item.size
-			c.list.Remove(element)
+			c.list.Remove(node)
 			item.promotions = -2
 			dropped += 1
 		}
-		element = prev
+		node = prev
 	}
 	return dropped
 }
