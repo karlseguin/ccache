@@ -5,45 +5,39 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/karlseguin/expect"
+	"github.com/karlseguin/ccache/v3/assert"
 )
 
-type ItemTests struct{}
-
-func Test_Item(t *testing.T) {
-	Expectify(new(ItemTests), t)
-}
-
-func (_ *ItemTests) Promotability() {
+func Test_Item_Promotability(t *testing.T) {
 	item := &Item[int]{promotions: 4}
-	Expect(item.shouldPromote(5)).To.Equal(true)
-	Expect(item.shouldPromote(5)).To.Equal(false)
+	assert.Equal(t, item.shouldPromote(5), true)
+	assert.Equal(t, item.shouldPromote(5), false)
 }
 
-func (_ *ItemTests) Expired() {
+func Test_Item_Expired(t *testing.T) {
 	now := time.Now().UnixNano()
 	item1 := &Item[int]{expires: now + (10 * int64(time.Millisecond))}
 	item2 := &Item[int]{expires: now - (10 * int64(time.Millisecond))}
-	Expect(item1.Expired()).To.Equal(false)
-	Expect(item2.Expired()).To.Equal(true)
+	assert.Equal(t, item1.Expired(), false)
+	assert.Equal(t, item2.Expired(), true)
 }
 
-func (_ *ItemTests) TTL() {
+func Test_Item_TTL(t *testing.T) {
 	now := time.Now().UnixNano()
 	item1 := &Item[int]{expires: now + int64(time.Second)}
 	item2 := &Item[int]{expires: now - int64(time.Second)}
-	Expect(int(math.Ceil(item1.TTL().Seconds()))).To.Equal(1)
-	Expect(int(math.Ceil(item2.TTL().Seconds()))).To.Equal(-1)
+	assert.Equal(t, int(math.Ceil(item1.TTL().Seconds())), 1)
+	assert.Equal(t, int(math.Ceil(item2.TTL().Seconds())), -1)
 }
 
-func (_ *ItemTests) Expires() {
+func Test_Item_Expires(t *testing.T) {
 	now := time.Now().UnixNano()
 	item := &Item[int]{expires: now + (10)}
-	Expect(item.Expires().UnixNano()).To.Equal(now + 10)
+	assert.Equal(t, item.Expires().UnixNano(), now+10)
 }
 
-func (_ *ItemTests) Extend() {
+func Test_Item_Extend(t *testing.T) {
 	item := &Item[int]{expires: time.Now().UnixNano() + 10}
 	item.Extend(time.Minute * 2)
-	Expect(item.Expires().Unix()).To.Equal(time.Now().Unix() + 120)
+	assert.Equal(t, item.Expires().Unix(), time.Now().Unix()+120)
 }

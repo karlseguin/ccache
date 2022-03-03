@@ -3,22 +3,16 @@ package ccache
 import (
 	"testing"
 
-	. "github.com/karlseguin/expect"
+	"github.com/karlseguin/ccache/v3/assert"
 )
 
-type ConfigurationTests struct{}
-
-func Test_Configuration(t *testing.T) {
-	Expectify(new(ConfigurationTests), t)
-}
-
-func (_ *ConfigurationTests) BucketsPowerOf2() {
+func Test_Configuration_BucketsPowerOf2(t *testing.T) {
 	for i := uint32(0); i < 31; i++ {
 		c := Configure[int]().Buckets(i)
 		if i == 1 || i == 2 || i == 4 || i == 8 || i == 16 {
-			Expect(c.buckets).ToEqual(int(i))
+			assert.Equal(t, c.buckets, int(i))
 		} else {
-			Expect(c.buckets).ToEqual(16)
+			assert.Equal(t, c.buckets, 16)
 		}
 	}
 }
