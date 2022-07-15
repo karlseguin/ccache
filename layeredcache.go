@@ -353,6 +353,9 @@ func (c *LayeredCache) gc() int {
 			c.bucket(item.group).delete(item.group, item.key)
 			c.size -= item.size
 			c.list.Remove(element)
+			if c.onDelete != nil {
+				c.onDelete(item)
+			}
 			item.promotions = -2
 			dropped += 1
 		}

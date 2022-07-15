@@ -227,7 +227,13 @@ func (_ LayeredCacheTests) TrackerDoesNotCleanupHeldInstance() {
 }
 
 func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
-	cache := Layered(Configure().MaxSize(5).ItemsToPrune(1))
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item) {
+		if item.key == "a" {
+			onDeleteFnCalled = true
+		}
+	}
+	cache := Layered(Configure().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
@@ -242,6 +248,7 @@ func (_ LayeredCacheTests) RemovesOldestItemWhenFull() {
 	Expect(cache.Get("xx", "b").Value()).To.Equal(9001)
 	Expect(cache.GetDropped()).To.Equal(4)
 	Expect(cache.GetDropped()).To.Equal(0)
+	Expect(onDeleteFnCalled).To.Equal(true)
 }
 
 func (_ LayeredCacheTests) ResizeOnTheFly() {
