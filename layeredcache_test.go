@@ -188,6 +188,20 @@ func Test_LayeredCache_PromotedItemsDontGetPruned(t *testing.T) {
 	assert.Equal(t, cache.Get("11", "a").Value(), 11)
 }
 
+func Test_LayeredCache_GetWithoutPromoteDoesNotPromote(t *testing.T) {
+	cache := Layered(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
+	for i := 0; i < 500; i++ {
+		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
+	}
+	cache.SyncUpdates()
+	cache.GetWithoutPromote("9", "a")
+	cache.SyncUpdates()
+	cache.GC()
+	assert.Equal(t, cache.Get("9", "a"), nil)
+	assert.Equal(t, cache.Get("10", "a").Value(), 10)
+	assert.Equal(t, cache.Get("11", "a").Value(), 11)
+}
+
 func Test_LayeredCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
 	cache := Layered(Configure[int]().ItemsToPrune(10).Track())
 	item0 := cache.TrackingSet("0", "a", 0, time.Minute)
@@ -207,13 +221,21 @@ func Test_LayeredCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
 }
 
 func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
-	cache := Layered(Configure[int]().MaxSize(5).ItemsToPrune(1))
+	onDeleteFnCalled := false
+	onDeleteFn := func(item *Item[int]) {
+		if item.key == "a" {
+			onDeleteFnCalled = true
+		}
+	}
+	cache := Layered(Configure[int]().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
+
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
 	cache.Set("xx", "b", 9001, time.Minute)
 	cache.SyncUpdates()
+
 	assert.Equal(t, cache.Get("xx", "a"), nil)
 	assert.Equal(t, cache.Get("0", "a"), nil)
 	assert.Equal(t, cache.Get("1", "a"), nil)
@@ -222,6 +244,7 @@ func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
 	assert.Equal(t, cache.Get("xx", "b").Value(), 9001)
 	assert.Equal(t, cache.GetDropped(), 4)
 	assert.Equal(t, cache.GetDropped(), 0)
+	assert.Equal(t, onDeleteFnCalled, true)
 }
 
 func Test_LayeredCache_ResizeOnTheFly(t *testing.T) {

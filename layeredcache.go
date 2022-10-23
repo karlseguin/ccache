@@ -75,6 +75,13 @@ func (c *LayeredCache[T]) Get(primary, secondary string) *Item[T] {
 	return item
 }
 
+// Same as Get but does not promote the value. This essentially circumvents the
+// "least recently used" aspect of this cache. To some degree, it's akin to a
+// "peak"
+func (c *LayeredCache[T]) GetWithoutPromote(primary, secondary string) *Item[T] {
+	return c.bucket(primary).get(primary, secondary)
+}
+
 func (c *LayeredCache[T]) ForEachFunc(primary string, matches func(key string, item *Item[T]) bool) {
 	c.bucket(primary).forEachFunc(primary, matches)
 }
@@ -345,6 +352,9 @@ func (c *LayeredCache[T]) gc() int {
 			c.bucket(item.group).delete(item.group, item.key)
 			c.size -= item.size
 			c.list.Remove(node)
+			if c.onDelete != nil {
+				c.onDelete(item)
+			}
 			item.promotions = -2
 			dropped += 1
 		}

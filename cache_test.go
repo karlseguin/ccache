@@ -138,6 +138,20 @@ func Test_CachePromotedItemsDontGetPruned(t *testing.T) {
 	assert.Equal(t, cache.Get("11").Value(), 11)
 }
 
+func Test_GetWithoutPromoteDoesNotPromote(t *testing.T) {
+	cache := New(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
+	for i := 0; i < 500; i++ {
+		cache.Set(strconv.Itoa(i), i, time.Minute)
+	}
+	cache.SyncUpdates()
+	cache.GetWithoutPromote("9")
+	cache.SyncUpdates()
+	cache.GC()
+	assert.Equal(t, cache.Get("9"), nil)
+	assert.Equal(t, cache.Get("10").Value(), 10)
+	assert.Equal(t, cache.Get("11").Value(), 11)
+}
+
 func Test_CacheTrackerDoesNotCleanupHeldInstance(t *testing.T) {
 	cache := New(Configure[int]().ItemsToPrune(11).Track())
 	item0 := cache.TrackingSet("0", 0, time.Minute)

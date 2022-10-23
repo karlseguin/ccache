@@ -1,4 +1,9 @@
 # CCache
+
+Generic version is on the way:
+https://github.com/karlseguin/ccache/tree/generic
+
+
 CCache is an LRU Cache, written in Go, focused on supporting high concurrency.
 
 Lock contention on the list is reduced by:
@@ -63,6 +68,9 @@ The returned `*Item` exposes a number of methods:
 * `Expires() time.Time` - the time the item will expire
 
 By returning expired items, CCache lets you decide if you want to serve stale content or not. For example, you might decide to serve up slightly stale content (< 30 seconds old) while re-fetching newer data in the background. You might also decide to serve up infinitely stale content if you're unable to get new data from your source.
+
+### GetWithoutPromote
+Same as `Get` but does not "promote" the value, which is to say it circumvents the "lru" aspect of this cache. Should only be used in limited cases, such as peaking at the value.
 
 ### Set
 `Set` expects the key, value and ttl:
