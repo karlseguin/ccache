@@ -9,15 +9,14 @@ Lock contention on the list is reduced by:
 
 Unless otherwise stated, all methods are thread-safe.
 
-## Configuration
-Next, import and create a `Cache` instance:
+The non-generic version of this cache can be imported via `github.com/karlseguin/ccache/`.
 
+## Configuration
+Import and create a `Cache` instance:
 
 ```go
 import (
-  // The generic version of this cache isn't battle-tested
-  // use it with caution. Prefer the original non-generic
-  // implementation for now: github.com/karlseguin/ccache/
+  github.com/karlseguin/ccache/v3
 )
 
 // create a cache with string values
