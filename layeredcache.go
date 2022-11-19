@@ -355,6 +355,7 @@ func (c *LayeredCache[T]) gc() int {
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
+			item.node = nil
 			item.promotions = -2
 			dropped += 1
 		}

@@ -438,6 +438,7 @@ func (c *Cache[T]) gc() int {
 				c.onDelete(item)
 			}
 			dropped += 1
+			item.node = nil
 			item.promotions = -2
 		}
 		node = prev

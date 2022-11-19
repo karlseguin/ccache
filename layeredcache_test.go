@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"math/rand"
 	"sort"
 	"strconv"
 	"sync/atomic"
@@ -370,6 +371,29 @@ func Test_LayeredCache_EachFunc(t *testing.T) {
 	cache.Set("1", "e", 6, time.Minute)
 	cache.SyncUpdates()
 	assert.DoesNotContain(t, forEachKeysLayered[int](cache, "1"), "stop")
+}
+
+func Test_LayeredCachePrune(t *testing.T) {
+	maxSize := int64(500)
+	cache := Layered(Configure[string]().MaxSize(maxSize).ItemsToPrune(50))
+	epoch := 0
+	for i := 0; i < 10000; i++ {
+		epoch += 1
+		expired := make([]string, 0)
+		for i := 0; i < 50; i += 1 {
+			key := strconv.FormatInt(rand.Int63n(maxSize*20), 10)
+			item := cache.Get(key, key)
+			if item == nil || item.TTL() > 1*time.Minute {
+				expired = append(expired, key)
+			}
+		}
+		for _, key := range expired {
+			cache.Set(key, key, key, 5*time.Minute)
+		}
+		if epoch%500 == 0 {
+			assert.True(t, cache.GetSize() < 500)
+		}
+	}
 }
 
 func newLayered[T any]() *LayeredCache[T] {
