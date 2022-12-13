@@ -266,13 +266,15 @@ func (c *LayeredCache[T]) worker() {
 	}
 	deleteItem := func(item *Item[T]) {
 		if item.node == nil {
-			atomic.StoreInt32(&item.promotions, -2)
+			item.promotions = -2
 		} else {
 			c.size -= item.size
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
 			c.list.Remove(item.node)
+			item.node = nil
+			item.promotions = -2
 		}
 	}
 	for {
@@ -318,13 +320,13 @@ func (c *LayeredCache[T]) worker() {
 
 func (c *LayeredCache[T]) doPromote(item *Item[T]) bool {
 	// deleted before it ever got promoted
-	if atomic.LoadInt32(&item.promotions) == -2 {
+	if item.promotions == -2 {
 		return false
 	}
 	if item.node != nil { //not a new item
 		if item.shouldPromote(c.getsPerPromote) {
 			c.list.MoveToFront(item.node)
-			atomic.StoreInt32(&item.promotions, 0)
+			item.promotions = 0
 		}
 		return false
 	}

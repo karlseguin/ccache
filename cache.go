@@ -394,6 +394,8 @@ func (c *Cache[T]) doDelete(item *Item[T]) {
 			c.onDelete(item)
 		}
 		c.list.Remove(item.node)
+		item.node = nil
+		item.promotions = -2
 	}
 }
 

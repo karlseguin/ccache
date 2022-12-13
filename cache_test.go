@@ -332,7 +332,7 @@ func Test_CachePrune(t *testing.T) {
 			cache.Set(key, key, 5*time.Minute)
 		}
 		if epoch%500 == 0 {
-			assert.True(t, cache.GetSize() < 500)
+			assert.True(t, cache.GetSize() <= 500)
 		}
 	}
 }
