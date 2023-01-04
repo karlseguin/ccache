@@ -396,6 +396,29 @@ func Test_LayeredCachePrune(t *testing.T) {
 	}
 }
 
+func Test_LayeredConcurrentStop(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		cache := Layered(Configure[string]())
+		r := func() {
+			for {
+				key := strconv.Itoa(int(rand.Int31n(100)))
+				switch rand.Int31n(3) {
+				case 0:
+					cache.Get(key, key)
+				case 1:
+					cache.Set(key, key, key, time.Minute)
+				case 2:
+					cache.Delete(key, key)
+				}
+			}
+		}
+		go r()
+		go r()
+		go r()
+		time.Sleep(time.Millisecond * 10)
+		cache.Stop()
+	}
+}
 func newLayered[T any]() *LayeredCache[T] {
 	c := Layered[T](Configure[T]())
 	c.Clear()

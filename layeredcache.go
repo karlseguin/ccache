@@ -9,13 +9,13 @@ import (
 
 type LayeredCache[T any] struct {
 	*Configuration[T]
+	control
 	list        *List[*Item[T]]
 	buckets     []*layeredBucket[T]
 	bucketMask  uint32
 	size        int64
 	deletables  chan *Item[T]
 	promotables chan *Item[T]
-	control     chan interface{}
 }
 
 // Create a new layered cache with the specified configuration.
@@ -35,17 +35,18 @@ func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 	c := &LayeredCache[T]{
 		list:          NewList[*Item[T]](),
 		Configuration: config,
+		control:       newControl(),
 		bucketMask:    uint32(config.buckets) - 1,
 		buckets:       make([]*layeredBucket[T], config.buckets),
 		deletables:    make(chan *Item[T], config.deleteBuffer),
-		control:       make(chan interface{}),
+		promotables:   make(chan *Item[T], config.promoteBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket[T]{
 			buckets: make(map[string]*bucket[T]),
 		}
 	}
-	c.restart()
+	go c.worker()
 	return c
 }
 
@@ -180,63 +181,6 @@ func (c *LayeredCache[T]) DeleteFunc(primary string, matches func(key string, it
 	return c.bucket(primary).deleteFunc(primary, matches, c.deletables)
 }
 
-// Clears the cache
-func (c *LayeredCache[T]) Clear() {
-	done := make(chan struct{})
-	c.control <- clear{done: done}
-	<-done
-}
-
-func (c *LayeredCache[T]) Stop() {
-	close(c.promotables)
-	<-c.control
-}
-
-// Gets the number of items removed from the cache due to memory pressure since
-// the last time GetDropped was called
-func (c *LayeredCache[T]) GetDropped() int {
-	return doGetDropped(c.control)
-}
-
-// SyncUpdates waits until the cache has finished asynchronous state updates for any operations
-// that were done by the current goroutine up to now. See Cache.SyncUpdates for details.
-func (c *LayeredCache[T]) SyncUpdates() {
-	doSyncUpdates(c.control)
-}
-
-// Sets a new max size. That can result in a GC being run if the new maxium size
-// is smaller than the cached size
-func (c *LayeredCache[T]) SetMaxSize(size int64) {
-	done := make(chan struct{})
-	c.control <- setMaxSize{size: size, done: done}
-	<-done
-}
-
-// Forces GC. There should be no reason to call this function, except from tests
-// which require synchronous GC.
-// This is a control command.
-func (c *LayeredCache[T]) GC() {
-	done := make(chan struct{})
-	c.control <- gc{done: done}
-	<-done
-}
-
-// Gets the size of the cache. This is an O(1) call to make, but it is handled
-// by the worker goroutine. It's meant to be called periodically for metrics, or
-// from tests.
-// This is a control command.
-func (c *LayeredCache[T]) GetSize() int64 {
-	res := make(chan int64)
-	c.control <- getSize{res}
-	return <-res
-}
-
-func (c *LayeredCache[T]) restart() {
-	c.promotables = make(chan *Item[T], c.promoteBuffer)
-	c.control = make(chan interface{})
-	go c.worker()
-}
-
 func (c *LayeredCache[T]) set(primary, secondary string, value T, duration time.Duration, track bool) *Item[T] {
 	item, existing := c.bucket(primary).set(primary, secondary, value, duration, track)
 	if existing != nil {
@@ -257,64 +201,75 @@ func (c *LayeredCache[T]) promote(item *Item[T]) {
 }
 
 func (c *LayeredCache[T]) worker() {
-	defer close(c.control)
 	dropped := 0
+	cc := c.control
+
 	promoteItem := func(item *Item[T]) {
 		if c.doPromote(item) && c.size > c.maxSize {
 			dropped += c.gc()
 		}
 	}
-	deleteItem := func(item *Item[T]) {
-		if item.node == nil {
-			item.promotions = -2
-		} else {
-			c.size -= item.size
-			if c.onDelete != nil {
-				c.onDelete(item)
-			}
-			c.list.Remove(item.node)
-			item.node = nil
-			item.promotions = -2
-		}
-	}
+
 	for {
 		select {
-		case item, ok := <-c.promotables:
-			if ok == false {
-				return
-			}
+		case item := <-c.promotables:
 			promoteItem(item)
 		case item := <-c.deletables:
-			deleteItem(item)
-		case control := <-c.control:
+			c.doDelete(item)
+		case control := <-cc:
 			switch msg := control.(type) {
-			case getDropped:
+			case controlStop:
+				goto drain
+			case controlGetDropped:
 				msg.res <- dropped
 				dropped = 0
-			case setMaxSize:
+			case controlSetMaxSize:
 				c.maxSize = msg.size
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
 				msg.done <- struct{}{}
-			case clear:
+			case controlClear:
 				for _, bucket := range c.buckets {
 					bucket.clear()
 				}
 				c.size = 0
 				c.list = NewList[*Item[T]]()
 				msg.done <- struct{}{}
-			case getSize:
+			case controlGetSize:
 				msg.res <- c.size
-			case gc:
+			case controlGC:
 				dropped += c.gc()
 				msg.done <- struct{}{}
-			case syncWorker:
-				doAllPendingPromotesAndDeletes(c.promotables, promoteItem,
-					c.deletables, deleteItem)
+			case controlSyncUpdates:
+				doAllPendingPromotesAndDeletes(c.promotables, promoteItem, c.deletables, c.doDelete)
 				msg.done <- struct{}{}
 			}
 		}
+	}
+
+drain:
+	for {
+		select {
+		case item := <-c.deletables:
+			c.doDelete(item)
+		default:
+			return
+		}
+	}
+}
+
+func (c *LayeredCache[T]) doDelete(item *Item[T]) {
+	if item.node == nil {
+		item.promotions = -2
+	} else {
+		c.size -= item.size
+		if c.onDelete != nil {
+			c.onDelete(item)
+		}
+		c.list.Remove(item.node)
+		item.node = nil
+		item.promotions = -2
 	}
 }
 
