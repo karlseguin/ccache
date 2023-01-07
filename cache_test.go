@@ -337,6 +337,30 @@ func Test_CachePrune(t *testing.T) {
 	}
 }
 
+func Test_ConcurrentStop(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		cache := New(Configure[string]())
+		r := func() {
+			for {
+				key := strconv.Itoa(int(rand.Int31n(100)))
+				switch rand.Int31n(3) {
+				case 0:
+					cache.Get(key)
+				case 1:
+					cache.Set(key, key, time.Minute)
+				case 2:
+					cache.Delete(key)
+				}
+			}
+		}
+		go r()
+		go r()
+		go r()
+		time.Sleep(time.Millisecond * 10)
+		cache.Stop()
+	}
+}
+
 type SizedItem struct {
 	id int
 	s  int64
