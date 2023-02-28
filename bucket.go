@@ -100,6 +100,9 @@ func (b *bucket[T]) deletePrefix(prefix string, deletables chan *Item[T]) int {
 
 func (b *bucket[T]) clear() {
 	b.Lock()
+	for _, item := range b.lookup {
+		item.node = nil
+	}
 	b.lookup = make(map[string]*Item[T])
 	b.Unlock()
 }
