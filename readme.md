@@ -37,15 +37,18 @@ var cache = ccache.New(ccache.Configure[int]().MaxSize(1000).ItemsToPrune(100))
 
 The most likely configuration options to tweak are:
 
-* `MaxSize(int)` - the maximum number size  to store in the cache (default: 5000) ()
+* `MaxSize(int)` - the maximum size to store in the cache (default: 5000)
 * `GetsPerPromote(int)` - the number of times an item is fetched before we promote it. For large caches with long TTLs, it normally isn't necessary to promote an item after every fetch (default: 3)
-* `ItemsToPrune(int)` - the number of items to prune when we hit `MaxSize`. Freeing up more than 1 slot at a time improveds performance (default: 500)
+* `ItemsToPrune(int)` - the number of items to prune when we hit `MaxSize`. Freeing up more than 1 slot at a time improves performance (default: 500)
 
 Configurations that change the internals of the cache, which aren't as likely to need tweaking:
 
 * `Buckets` - ccache shards its internal map to provide a greater amount of concurrency. Must be a power of 2 (default: 16).
 * `PromoteBuffer(int)` - the size of the buffer to use to queue promotions (default: 1024)
 * `DeleteBuffer(int)` the size of the buffer to use to queue deletions (default: 1024)
+
+## MaxSize Soft vs Hard Limit
+By default, MaxSize is a soft limit. This is a result of the fact that cache pruning happens asychronously in a separate "worker" goroutine. The hard limit is MaxSize + SetableBufferSize + 1. The SettableBufferSize can be configured via the `SetableBuffer(INT)` configuration function. It defaults to 256.
 
 ## Usage
 
