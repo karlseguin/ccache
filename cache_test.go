@@ -361,6 +361,20 @@ func Test_ConcurrentStop(t *testing.T) {
 	}
 }
 
+func Test_UnbufferedSetable_Enforces_MaxSize(t *testing.T) {
+	cache := New(Configure[string]().MaxSize(3).SetableBuffer(0).ItemsToPrune(1))
+	cache.Set("a", "1", time.Minute)
+	cache.Set("b", "2", time.Minute)
+	cache.Set("c", "3", time.Minute)
+	cache.Set("d", "4", time.Minute)
+	cache.Set("e", "5", time.Minute)
+	assert.Nil(t, cache.Get("a"))
+	// "b" could or could not be purged
+	assert.Equal(t, cache.Get("c").Value(), "3")
+	assert.Equal(t, cache.Get("d").Value(), "4")
+	assert.Equal(t, cache.Get("e").Value(), "5")
+}
+
 type SizedItem struct {
 	id int
 	s  int64

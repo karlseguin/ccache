@@ -16,6 +16,7 @@ type LayeredCache[T any] struct {
 	size        int64
 	deletables  chan *Item[T]
 	promotables chan *Item[T]
+	setables    chan *Item[T]
 }
 
 // Create a new layered cache with the specified configuration.
@@ -40,6 +41,7 @@ func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 		buckets:       make([]*layeredBucket[T], config.buckets),
 		deletables:    make(chan *Item[T], config.deleteBuffer),
 		promotables:   make(chan *Item[T], config.promoteBuffer),
+		setables:      make(chan *Item[T], config.setableBuffer),
 	}
 	for i := 0; i < int(config.buckets); i++ {
 		c.buckets[i] = &layeredBucket[T]{
@@ -186,7 +188,7 @@ func (c *LayeredCache[T]) set(primary, secondary string, value T, duration time.
 	if existing != nil {
 		c.deletables <- existing
 	}
-	c.promote(item)
+	c.setables <- item
 	return item
 }
 
@@ -194,10 +196,6 @@ func (c *LayeredCache[T]) bucket(key string) *layeredBucket[T] {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return c.buckets[h.Sum32()&c.bucketMask]
-}
-
-func (c *LayeredCache[T]) promote(item *Item[T]) {
-	c.promotables <- item
 }
 
 func (c *LayeredCache[T]) worker() {
@@ -213,6 +211,8 @@ func (c *LayeredCache[T]) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
+			promoteItem(item)
+		case item := <-c.setables:
 			promoteItem(item)
 		case item := <-c.deletables:
 			c.doDelete(item)
@@ -242,7 +242,7 @@ func (c *LayeredCache[T]) worker() {
 				dropped += c.gc()
 				msg.done <- struct{}{}
 			case controlSyncUpdates:
-				doAllPendingPromotesAndDeletes(c.promotables, promoteItem, c.deletables, c.doDelete)
+				doAllPendingPromotesAndDeletes(c.promotables, c.promotables, promoteItem, c.deletables, c.doDelete)
 				msg.done <- struct{}{}
 			}
 		}

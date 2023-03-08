@@ -43,6 +43,7 @@ type Cache[T any] struct {
 	bucketMask  uint32
 	deletables  chan *Item[T]
 	promotables chan *Item[T]
+	setables    chan *Item[T]
 }
 
 // Create a new cache with the specified configuration
@@ -56,6 +57,7 @@ func New[T any](config *Configuration[T]) *Cache[T] {
 		buckets:       make([]*bucket[T], config.buckets),
 		deletables:    make(chan *Item[T], config.deleteBuffer),
 		promotables:   make(chan *Item[T], config.promoteBuffer),
+		setables:      make(chan *Item[T], config.setableBuffer),
 	}
 	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &bucket[T]{
@@ -196,7 +198,7 @@ func (c *Cache[T]) set(key string, value T, duration time.Duration, track bool) 
 	if existing != nil {
 		c.deletables <- existing
 	}
-	c.promotables <- item
+	c.setables <- item
 	return item
 }
 
@@ -219,6 +221,8 @@ func (c *Cache[T]) worker() {
 	for {
 		select {
 		case item := <-c.promotables:
+			promoteItem(item)
+		case item := <-c.setables:
 			promoteItem(item)
 		case item := <-c.deletables:
 			c.doDelete(item)
@@ -248,7 +252,7 @@ func (c *Cache[T]) worker() {
 				dropped += c.gc()
 				msg.done <- struct{}{}
 			case controlSyncUpdates:
-				doAllPendingPromotesAndDeletes(c.promotables, promoteItem, c.deletables, c.doDelete)
+				doAllPendingPromotesAndDeletes(c.promotables, c.setables, promoteItem, c.deletables, c.doDelete)
 				msg.done <- struct{}{}
 			}
 		}
@@ -272,6 +276,7 @@ drain:
 // that were already sent by the same goroutine.
 func doAllPendingPromotesAndDeletes[T any](
 	promotables <-chan *Item[T],
+	setables <-chan *Item[T],
 	promoteFn func(*Item[T]),
 	deletables <-chan *Item[T],
 	deleteFn func(*Item[T]),
@@ -280,6 +285,8 @@ doAllPromotes:
 	for {
 		select {
 		case item := <-promotables:
+			promoteFn(item)
+		case item := <-setables:
 			promoteFn(item)
 		default:
 			break doAllPromotes

@@ -20,7 +20,7 @@ func (s *SecondaryCache[T]) Set(secondary string, value T, duration time.Duratio
 	if existing != nil {
 		s.pCache.deletables <- existing
 	}
-	s.pCache.promote(item)
+	s.pCache.promotables <- item
 	return item
 }
 

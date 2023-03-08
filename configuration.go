@@ -6,6 +6,7 @@ type Configuration[T any] struct {
 	itemsToPrune   int
 	deleteBuffer   int
 	promoteBuffer  int
+	setableBuffer  int
 	getsPerPromote int32
 	tracking       bool
 	onDelete       func(item *Item[T])
@@ -21,6 +22,7 @@ func Configure[T any]() *Configuration[T] {
 		deleteBuffer:   1024,
 		getsPerPromote: 3,
 		promoteBuffer:  1024,
+		setableBuffer:  256,
 		maxSize:        5000,
 		tracking:       false,
 	}
@@ -56,6 +58,14 @@ func (c *Configuration[T]) ItemsToPrune(count uint32) *Configuration[T] {
 // [1024]
 func (c *Configuration[T]) PromoteBuffer(size uint32) *Configuration[T] {
 	c.promoteBuffer = int(size)
+	return c
+}
+
+// The size of the queue for items which are set. If the queue fills, sets block.
+// Setting this to 0 will ensure that the queue never grows being MaxSize+1
+// [256]
+func (c *Configuration[T]) SetableBuffer(size uint32) *Configuration[T] {
+	c.setableBuffer = int(size)
 	return c
 }
 

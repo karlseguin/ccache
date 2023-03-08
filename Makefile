@@ -1,6 +1,6 @@
 .PHONY: t
 t:
-	go test -race -count=1 ./...
+	go test -race -count=1 .
 
 .PHONY: f
 f:
