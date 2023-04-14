@@ -206,6 +206,24 @@ func (c *Cache[T]) bucket(key string) *bucket[T] {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
+func (c *Cache[T]) halted(fn func()) {
+	c.halt()
+	defer c.unhalt()
+	fn()
+}
+
+func (c *Cache[T]) halt() {
+	for _, bucket := range c.buckets {
+		bucket.Lock()
+	}
+}
+
+func (c *Cache[T]) unhalt() {
+	for _, bucket := range c.buckets {
+		bucket.Unlock()
+	}
+}
+
 func (c *Cache[T]) worker() {
 	dropped := 0
 	cc := c.control
@@ -236,11 +254,22 @@ func (c *Cache[T]) worker() {
 				}
 				msg.done <- struct{}{}
 			case controlClear:
-				for _, bucket := range c.buckets {
-					bucket.clear()
-				}
-				c.size = 0
-				c.list = NewList[*Item[T]]()
+				c.halted(func() {
+					promotables := c.promotables
+					for len(promotables) > 0 {
+						<-promotables
+					}
+					deletables := c.deletables
+					for len(deletables) > 0 {
+						<-deletables
+					}
+
+					for _, bucket := range c.buckets {
+						bucket.clear()
+					}
+					c.size = 0
+					c.list = NewList[*Item[T]]()
+				})
 				msg.done <- struct{}{}
 			case controlGetSize:
 				msg.res <- c.size

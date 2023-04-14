@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"sort"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -358,6 +359,40 @@ func Test_ConcurrentStop(t *testing.T) {
 		go r()
 		time.Sleep(time.Millisecond * 10)
 		cache.Stop()
+	}
+}
+
+func Test_ConcurrentClearAndSet(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		var stop atomic.Bool
+		var wg sync.WaitGroup
+
+		cache := New(Configure[string]())
+		r := func() {
+			for !stop.Load() {
+				cache.Set("a", "a", time.Minute)
+			}
+			wg.Done()
+		}
+		go r()
+		wg.Add(1)
+		cache.Clear()
+		stop.Store(true)
+		wg.Wait()
+		time.Sleep(time.Millisecond)
+		cache.SyncUpdates()
+
+		known := make(map[string]struct{})
+		for node := cache.list.Head; node != nil; node = node.Next {
+			known[node.Value.key] = struct{}{}
+		}
+
+		for _, bucket := range cache.buckets {
+			for key := range bucket.lookup {
+				_, exists := known[key]
+				assert.True(t, exists)
+			}
+		}
 	}
 }
 

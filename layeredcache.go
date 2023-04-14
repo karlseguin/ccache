@@ -196,6 +196,24 @@ func (c *LayeredCache[T]) bucket(key string) *layeredBucket[T] {
 	return c.buckets[h.Sum32()&c.bucketMask]
 }
 
+func (c *LayeredCache[T]) halted(fn func()) {
+	c.halt()
+	defer c.unhalt()
+	fn()
+}
+
+func (c *LayeredCache[T]) halt() {
+	for _, bucket := range c.buckets {
+		bucket.Lock()
+	}
+}
+
+func (c *LayeredCache[T]) unhalt() {
+	for _, bucket := range c.buckets {
+		bucket.Unlock()
+	}
+}
+
 func (c *LayeredCache[T]) promote(item *Item[T]) {
 	c.promotables <- item
 }
@@ -230,11 +248,22 @@ func (c *LayeredCache[T]) worker() {
 				}
 				msg.done <- struct{}{}
 			case controlClear:
-				for _, bucket := range c.buckets {
-					bucket.clear()
+				promotables := c.promotables
+				for len(promotables) > 0 {
+					<-promotables
 				}
-				c.size = 0
-				c.list = NewList[*Item[T]]()
+				deletables := c.deletables
+				for len(deletables) > 0 {
+					<-deletables
+				}
+
+				c.halted(func() {
+					for _, bucket := range c.buckets {
+						bucket.clear()
+					}
+					c.size = 0
+					c.list = NewList[*Item[T]]()
+				})
 				msg.done <- struct{}{}
 			case controlGetSize:
 				msg.res <- c.size

@@ -111,9 +111,8 @@ func (b *layeredBucket[T]) forEachFunc(primary string, matches func(key string, 
 	}
 }
 
+// we expect the caller to have acquired a write lock
 func (b *layeredBucket[T]) clear() {
-	b.Lock()
-	defer b.Unlock()
 	for _, bucket := range b.buckets {
 		bucket.clear()
 	}
