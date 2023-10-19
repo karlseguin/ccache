@@ -8,6 +8,11 @@ import (
 	"github.com/karlseguin/ccache/v3/assert"
 )
 
+func Test_Item_Key(t *testing.T) {
+	item := &Item[int]{key: "foo"}
+	assert.Equal(t, item.Key(), "foo")
+}
+
 func Test_Item_Promotability(t *testing.T) {
 	item := &Item[int]{promotions: 4}
 	assert.Equal(t, item.shouldPromote(5), true)
