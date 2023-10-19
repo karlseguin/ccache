@@ -55,6 +55,10 @@ func (i *Item[T]) shouldPromote(getsPerPromote int32) bool {
 	return i.promotions == getsPerPromote
 }
 
+func (i *Item[T]) Key() string {
+	return i.key
+}
+
 func (i *Item[T]) Value() T {
 	return i.value
 }
