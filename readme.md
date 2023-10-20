@@ -122,6 +122,14 @@ cache.Replace("user:4", user)
 
 `Replace` returns true if the item existed (and thus was replaced). In the case where the key was not in the cache, the value *is not* inserted and false is returned.
 
+### Setnx
+
+Set the value if not exists. setnx will first check whether kv exists. If it does not exist, set kv in cache. this operation is atomic.
+
+```go
+cache.Set("user:4", user, time.Minute * 10)
+```
+
 ### GetDropped
 You can get the number of keys evicted due to memory pressure by calling `GetDropped`:
 

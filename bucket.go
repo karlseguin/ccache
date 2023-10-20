@@ -35,6 +35,22 @@ func (b *bucket[T]) get(key string) *Item[T] {
 	return b.lookup[key]
 }
 
+func (b *bucket[T]) setnx(key string, value T, duration time.Duration, track bool) *Item[T] {
+	b.Lock()
+	defer b.Unlock()
+
+	item := b.lookup[key]
+	if item != nil {
+		return item
+	}
+
+	expires := time.Now().Add(duration).UnixNano()
+	item = newItem(key, value, expires, track)
+	b.lookup[key] = item
+
+	return item
+}
+
 func (b *bucket[T]) set(key string, value T, duration time.Duration, track bool) (*Item[T], *Item[T]) {
 	expires := time.Now().Add(duration).UnixNano()
 	item := newItem(key, value, expires, track)

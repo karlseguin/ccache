@@ -12,6 +12,27 @@ import (
 	"github.com/karlseguin/ccache/v3/assert"
 )
 
+func Test_Setnx(t *testing.T) {
+	cache := New(Configure[string]())
+	defer cache.Stop()
+	assert.Equal(t, cache.ItemCount(), 0)
+
+	cache.Set("spice", "flow", time.Minute)
+	assert.Equal(t, cache.ItemCount(), 1)
+
+	// set if exists
+	cache.Setnx("spice", "worm", time.Minute)
+	assert.Equal(t, cache.ItemCount(), 1)
+	assert.Equal(t, cache.Get("spice").Value(), "flow")
+
+	// set if not exists
+	cache.Delete("spice")
+	cache.Setnx("spice", "worm", time.Minute)
+	assert.Equal(t, cache.Get("spice").Value(), "worm")
+
+	assert.Equal(t, cache.ItemCount(), 1)
+}
+
 func Test_CacheDeletesAValue(t *testing.T) {
 	cache := New(Configure[string]())
 	defer cache.Stop()
