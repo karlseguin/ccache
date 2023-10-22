@@ -163,6 +163,17 @@ func (c *Cache[T]) Replace(key string, value T) bool {
 	return true
 }
 
+// Extend change the expiry of the item by the specified duration relative to the current time.
+func (c *Cache[T]) Extend(key string, duration time.Duration) bool {
+	item := c.bucket(key).get(key)
+	if item == nil {
+		return false
+	}
+
+	item.Extend(duration)
+	return true
+}
+
 // Attempts to get the value from the cache and calles fetch on a miss (missing
 // or stale item). If fetch returns an error, no value is cached and the error
 // is returned back to the caller.

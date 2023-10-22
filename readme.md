@@ -111,7 +111,18 @@ cache.Delete("user:4")
 `Clear` clears the cache. If the cache's gc is running, `Clear` waits for it to finish.
 
 ### Extend
+
 The life of an item can be changed via the `Extend` method. This will change the expiry of the item by the specified duration relative to the current time.
+
+```go
+cache.Extend("user:4", time.Minute * 10)
+
+// or
+item := cache.Get("user:4")
+if item != nil {
+  item.Extend(time.Minute * 10)
+}
+```
 
 ### Replace
 The value of an item can be updated to a new value without renewing the item's TTL or it's position in the LRU:
