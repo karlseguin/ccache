@@ -163,7 +163,8 @@ func (c *Cache[T]) Replace(key string, value T) bool {
 	return true
 }
 
-// Extend change the expiry of the item by the specified duration relative to the current time.
+// Extend the value if it exists, does not set if it doesn't exists.
+// Returns true if the expire time of the item an was extended, false otherwise.
 func (c *Cache[T]) Extend(key string, duration time.Duration) bool {
 	item := c.bucket(key).get(key)
 	if item == nil {
