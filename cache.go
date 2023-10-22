@@ -148,7 +148,7 @@ func (c *Cache[T]) Set(key string, value T, duration time.Duration) {
 
 // Setnx set the value in the cache for the specified duration if not exists
 func (c *Cache[T]) Setnx(key string, value T, duration time.Duration) {
-	c.setnx(key, value, duration, false)
+	c.bucket(key).setnx(key, value, duration, false)
 }
 
 // Replace the value if it exists, does not set if it doesn't.
@@ -203,10 +203,6 @@ func (c *Cache[T]) set(key string, value T, duration time.Duration, track bool) 
 	}
 	c.promotables <- item
 	return item
-}
-
-func (c *Cache[T]) setnx(key string, value T, duration time.Duration, track bool) *Item[T] {
-	return c.bucket(key).setnx(key, value, duration, track)
 }
 
 func (c *Cache[T]) bucket(key string) *bucket[T] {
