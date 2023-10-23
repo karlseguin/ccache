@@ -17,7 +17,7 @@ Import and create a `Cache` instance:
 
 ```go
 import (
-  github.com/karlseguin/ccache/v3
+  "github.com/karlseguin/ccache/v3"
 )
 
 // create a cache with string values
