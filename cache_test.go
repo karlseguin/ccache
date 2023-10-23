@@ -33,6 +33,31 @@ func Test_Setnx(t *testing.T) {
 	assert.Equal(t, cache.ItemCount(), 1)
 }
 
+func Test_Extend(t *testing.T) {
+	cache := New(Configure[string]())
+	defer cache.Stop()
+	assert.Equal(t, cache.ItemCount(), 0)
+
+	// non exist
+	ok := cache.Extend("spice", time.Minute*10)
+	assert.Equal(t, false, ok)
+
+	// exist
+	cache.Set("spice", "flow", time.Minute)
+	assert.Equal(t, cache.ItemCount(), 1)
+
+	ok = cache.Extend("spice", time.Minute*10) // 10 + 10
+	assert.Equal(t, true, ok)
+
+	item := cache.Get("spice")
+	less := time.Minute*22 < time.Duration(item.expires)
+	assert.Equal(t, true, less)
+	more := time.Minute*18 < time.Duration(item.expires)
+	assert.Equal(t, true, more)
+
+	assert.Equal(t, cache.ItemCount(), 1)
+}
+
 func Test_CacheDeletesAValue(t *testing.T) {
 	cache := New(Configure[string]())
 	defer cache.Stop()
