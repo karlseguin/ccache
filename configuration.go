@@ -37,7 +37,7 @@ func (c *Configuration[T]) MaxSize(max int64) *Configuration[T] {
 // requires a write lock on the bucket). Must be a power of 2 (1, 2, 4, 8, 16, ...)
 // [16]
 func (c *Configuration[T]) Buckets(count uint32) *Configuration[T] {
-	if count == 0 || ((count&(^count+1)) == count) == false {
+	if count == 0 || !((count & (^count + 1)) == count) {
 		count = 16
 	}
 	c.buckets = int(count)

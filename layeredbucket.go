@@ -32,7 +32,7 @@ func (b *layeredBucket[T]) getSecondaryBucket(primary string) *bucket[T] {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
-	if exists == false {
+	if !exists {
 		return nil
 	}
 	return bucket
@@ -41,7 +41,7 @@ func (b *layeredBucket[T]) getSecondaryBucket(primary string) *bucket[T] {
 func (b *layeredBucket[T]) set(primary, secondary string, value T, duration time.Duration, track bool) (*Item[T], *Item[T]) {
 	b.Lock()
 	bkt, exists := b.buckets[primary]
-	if exists == false {
+	if !exists {
 		bkt = &bucket[T]{lookup: make(map[string]*Item[T])}
 		b.buckets[primary] = bkt
 	}
@@ -55,7 +55,7 @@ func (b *layeredBucket[T]) delete(primary, secondary string) *Item[T] {
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
-	if exists == false {
+	if !exists {
 		return nil
 	}
 	return bucket.delete(secondary)
@@ -65,7 +65,7 @@ func (b *layeredBucket[T]) deletePrefix(primary, prefix string, deletables chan 
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
-	if exists == false {
+	if !exists {
 		return 0
 	}
 	return bucket.deletePrefix(prefix, deletables)
@@ -75,7 +75,7 @@ func (b *layeredBucket[T]) deleteFunc(primary string, matches func(key string, i
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
-	if exists == false {
+	if !exists {
 		return 0
 	}
 	return bucket.deleteFunc(matches, deletables)
@@ -85,7 +85,7 @@ func (b *layeredBucket[T]) deleteAll(primary string, deletables chan *Item[T]) b
 	b.RLock()
 	bucket, exists := b.buckets[primary]
 	b.RUnlock()
-	if exists == false {
+	if !exists {
 		return false
 	}
 

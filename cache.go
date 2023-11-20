@@ -7,33 +7,6 @@ import (
 	"time"
 )
 
-// The cache has a generic 'control' channel that is used to send
-// messages to the worker. These are the messages that can be sent to it
-type getDropped struct {
-	res chan int
-}
-
-type getSize struct {
-	res chan int64
-}
-
-type setMaxSize struct {
-	size int64
-	done chan struct{}
-}
-
-type clear struct {
-	done chan struct{}
-}
-
-type syncWorker struct {
-	done chan struct{}
-}
-
-type gc struct {
-	done chan struct{}
-}
-
 type Cache[T any] struct {
 	*Configuration[T]
 	control
@@ -201,11 +174,6 @@ func (c *Cache[T]) Delete(key string) bool {
 		return true
 	}
 	return false
-}
-
-func (c *Cache[T]) deleteItem(bucket *bucket[T], item *Item[T]) {
-	bucket.delete(item.key) //stop other GETs from getting it
-	c.deletables <- item
 }
 
 func (c *Cache[T]) set(key string, value T, duration time.Duration, track bool) *Item[T] {
@@ -389,7 +357,7 @@ func (c *Cache[T]) gc() int {
 		}
 		prev := node.Prev
 		item := node.Value
-		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
+		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
 			c.size -= item.size
 			c.list.Remove(node)

@@ -41,7 +41,7 @@ func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 		deletables:    make(chan *Item[T], config.deleteBuffer),
 		promotables:   make(chan *Item[T], config.promoteBuffer),
 	}
-	for i := 0; i < int(config.buckets); i++ {
+	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &layeredBucket[T]{
 			buckets: make(map[string]*bucket[T]),
 		}
@@ -334,7 +334,7 @@ func (c *LayeredCache[T]) gc() int {
 		}
 		prev := node.Prev
 		item := node.Value
-		if c.tracking == false || atomic.LoadInt32(&item.refCount) == 0 {
+		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.group).delete(item.group, item.key)
 			c.size -= item.size
 			c.list.Remove(node)

@@ -85,11 +85,3 @@ func assertList(t *testing.T, list *List[int], expected ...int) {
 		node = node.Prev
 	}
 }
-
-func listFromInts(ints ...int) *List[int] {
-	l := NewList[int]()
-	for i := len(ints) - 1; i >= 0; i-- {
-		l.Insert(ints[i])
-	}
-	return l
-}

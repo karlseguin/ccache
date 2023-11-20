@@ -1,16 +1,18 @@
+.PHONY: l
+l: ## Lint Go source files
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run
+
 .PHONY: t
-t:
+t: ## Run unit tests
 	go test -race -count=1 ./...
 
 .PHONY: f
-f:
+f: ## Format code
 	go fmt ./...
 
-
 .PHONY: c
-c:
+c: ## Measure code coverage
 	go test -race -covermode=atomic ./... -coverprofile=cover.out && \
-# 	go tool cover -html=cover.out && \
 	go tool cover -func cover.out \
 		| grep -vP '[89]\d\.\d%' | grep -v '100.0%' \
 		|| true

@@ -124,7 +124,6 @@ func Test_CacheDeletesAFunc(t *testing.T) {
 		return key == "d"
 	}), 1)
 	assert.Equal(t, cache.ItemCount(), 2)
-
 }
 
 func Test_CacheOnDeleteCallbackCalled(t *testing.T) {

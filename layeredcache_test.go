@@ -118,7 +118,6 @@ func Test_LayedCache_DeletesAFunc(t *testing.T) {
 		return key == "d"
 	}), 1)
 	assert.Equal(t, cache.ItemCount(), 3)
-
 }
 
 func Test_LayedCache_OnDeleteCallbackCalled(t *testing.T) {
