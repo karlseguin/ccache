@@ -16,3 +16,8 @@ func Test_Configuration_BucketsPowerOf2(t *testing.T) {
 		}
 	}
 }
+
+func Test_Configuration_Buffers(t *testing.T) {
+	assert.Equal(t, Configure[int]().DeleteBuffer(24).deleteBuffer, 24)
+	assert.Equal(t, Configure[int]().PromoteBuffer(95).promoteBuffer, 95)
+}

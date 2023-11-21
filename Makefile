@@ -14,7 +14,7 @@ f: ## Format code
 c: ## Measure code coverage
 	go test -race -covermode=atomic ./... -coverprofile=cover.out && \
 	go tool cover -func cover.out \
-		| grep -vP '[89]\d\.\d%' | grep -v '100.0%' \
+		| grep -v '100.0%' \
 		|| true
 
 	rm cover.out
