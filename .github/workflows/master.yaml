@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  go-bench:
+  bench:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
