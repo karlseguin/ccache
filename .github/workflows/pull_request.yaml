@@ -95,10 +95,12 @@ jobs:
           tool: 'go'
           # Where the output from the benchmark tool is stored
           output-file-path: ${{ github.sha }}_bench_output.txt
-          # Do not save the data
+          # Write benchmarks to this file, do not publish to Github Pages
           save-data-file: false
+          external-data-json-path: ./cache/benchmark-data.json
           # Workflow will fail when an alert happens
           fail-on-alert: true
+          # Enable alert commit comment
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-alert: true
           # Enable Job Summary for PRs
