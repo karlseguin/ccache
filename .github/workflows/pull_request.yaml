@@ -73,7 +73,6 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         if: success()
         with:
-          alert-threshold: "200%"
           # What benchmark tool the output.txt came from
           tool: 'go'
           # Where the output from the benchmark tool is stored
@@ -85,5 +84,24 @@ jobs:
           # Workflow will fail when an alert happens
           fail-on-alert: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Enable Job Summary for PRs
+          summary-always: true
+
+      - name: Run benchmarks
+        uses: benchmark-action/github-action-benchmark@v1
+        if: failure()
+        with:
+          # What benchmark tool the output.txt came from
+          tool: 'go'
+          # Where the output from the benchmark tool is stored
+          output-file-path: bench_output.txt
+          # Write benchmarks to this file
+          external-data-json-path: ./cache/benchmark-data.json
+          # Do not save the data
+          save-data-file: false
+          # Workflow will fail when an alert happens
+          fail-on-alert: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: true
           # Enable Job Summary for PRs
           summary-always: true
