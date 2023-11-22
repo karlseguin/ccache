@@ -441,6 +441,63 @@ func Test_ConcurrentClearAndSet(t *testing.T) {
 	}
 }
 
+func BenchmarkFrequentSets(b *testing.B) {
+	cache := New(Configure[int]())
+	defer cache.Stop()
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		key := strconv.Itoa(n)
+		cache.Set(key, n, time.Minute)
+	}
+}
+
+func BenchmarkFrequentGets(b *testing.B) {
+	cache := New(Configure[int]())
+	defer cache.Stop()
+	numKeys := 500
+	for i := 0; i < numKeys; i++ {
+		key := strconv.Itoa(i)
+		cache.Set(key, i, time.Minute)
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		key := strconv.FormatInt(rand.Int63n(int64(numKeys)), 10)
+		cache.Get(key)
+	}
+}
+
+func BenchmarkGetWithPromoteSmall(b *testing.B) {
+	getsPerPromotes := 5
+	cache := New(Configure[int]().GetsPerPromote(int32(getsPerPromotes)))
+	defer cache.Stop()
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		key := strconv.Itoa(n)
+		cache.Set(key, n, time.Minute)
+		for i := 0; i < getsPerPromotes; i++ {
+			cache.Get(key)
+		}
+	}
+}
+
+func BenchmarkGetWithPromoteLarge(b *testing.B) {
+	getsPerPromotes := 100
+	cache := New(Configure[int]().GetsPerPromote(int32(getsPerPromotes)))
+	defer cache.Stop()
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		key := strconv.Itoa(n)
+		cache.Set(key, n, time.Minute)
+		for i := 0; i < getsPerPromotes; i++ {
+			cache.Get(key)
+		}
+	}
+}
+
 type SizedItem struct {
 	id int
 	s  int64

@@ -1,3 +1,13 @@
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: bench
+bench: ## Run benchmarks
+	go test ./... -bench . -benchtime 5s -timeout 0 -run=XXX -benchmem
+
 .PHONY: l
 l: ## Lint Go source files
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint run
@@ -12,9 +22,4 @@ f: ## Format code
 
 .PHONY: c
 c: ## Measure code coverage
-	go test -race -covermode=atomic ./... -coverprofile=cover.out && \
-	go tool cover -func cover.out \
-		| grep -v '100.0%' \
-		|| true
-
-	rm cover.out
+	go test -race -covermode=atomic ./... -coverprofile=cover.out
