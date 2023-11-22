@@ -18,11 +18,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version-file: './go.mod'
-          check-latest: true
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: latest
+          version: 'v1.18'
 
   test:
     runs-on: ubuntu-latest
@@ -34,7 +33,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version-file: './go.mod'
-          check-latest: true
       - name: Unit Tests
         run: make t
   bench:
