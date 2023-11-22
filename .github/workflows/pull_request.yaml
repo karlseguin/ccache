@@ -71,7 +71,7 @@ jobs:
 
       - name: Compare benchmarks
         uses: benchmark-action/github-action-benchmark@v1
-        if: success()
+        if: ${{ success() }}
         with:
           # What benchmark tool the output.txt came from
           tool: 'go'
@@ -89,7 +89,7 @@ jobs:
 
       - name: Run benchmarks
         uses: benchmark-action/github-action-benchmark@v1
-        if: failure()
+        if: ${{ failure() }}
         with:
           # What benchmark tool the output.txt came from
           tool: 'go'
