@@ -95,8 +95,6 @@ jobs:
           tool: 'go'
           # Where the output from the benchmark tool is stored
           output-file-path: bench_output.txt
-          # Write benchmarks to this file
-          external-data-json-path: ./cache/benchmark-data.json
           # Do not save the data
           save-data-file: false
           # Workflow will fail when an alert happens
