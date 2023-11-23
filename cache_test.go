@@ -408,7 +408,7 @@ func Test_ConcurrentStop(t *testing.T) {
 }
 
 func Test_ConcurrentClearAndSet(t *testing.T) {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000000; i++ {
 		var stop atomic.Bool
 		var wg sync.WaitGroup
 
@@ -424,20 +424,27 @@ func Test_ConcurrentClearAndSet(t *testing.T) {
 		cache.Clear()
 		stop.Store(true)
 		wg.Wait()
-		time.Sleep(time.Millisecond)
 		cache.SyncUpdates()
 
-		known := make(map[string]struct{})
-		for node := cache.list.Head; node != nil; node = node.Next {
-			known[node.Value.key] = struct{}{}
-		}
-
-		for _, bucket := range cache.buckets {
-			for key := range bucket.lookup {
-				_, exists := known[key]
-				assert.True(t, exists)
+		// The point of this test is to make sure that the cache's lookup and its
+		// recency list are in sync. But the two aren't written to atomically:
+		// the lookup is written to directly from the call to Set, whereas the
+		// list is maintained by the background worker. This can create a period
+		// where the two are out of sync. Even SyncUpdate is helpless here, since
+		// it can only sync what's been written to the buffers.
+		for i := 0; i < 10; i++ {
+			expectedCount := 0
+			if cache.list.Head != nil {
+				expectedCount = 1
 			}
+			actualCount := cache.ItemCount()
+			if expectedCount == actualCount {
+				return
+			}
+			time.Sleep(time.Millisecond)
 		}
+		t.Errorf("cache list and lookup are not consistent")
+		t.FailNow()
 	}
 }
 
