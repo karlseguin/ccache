@@ -56,6 +56,10 @@ jobs:
           set -o pipefail
           make bench | tee ${{ github.sha }}_bench_output.txt
 
+      - name: Get CPU information
+        uses: kenchan0130/actions-system-info@master
+        id: system-info
+
       - name: Get Master branch SHA
         id: get-master-branch-sha
         run: |
@@ -67,7 +71,7 @@ jobs:
         id: cache
         with:
           path: ./cache/benchmark-data.json
-          key: ${{ steps.get-master-branch-sha.outputs.sha }}-${{ runner.os }}-go-benchmark
+          key: ${{ steps.get-master-branch-sha.outputs.sha }}-${{ runner.os }}-${{ steps.system-info.outputs.cpu-model }}-go-benchmark
 
       - name: Compare benchmarks with master
         uses: benchmark-action/github-action-benchmark@v1
