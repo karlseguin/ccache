@@ -1,6 +1,7 @@
 package ccache
 
 import (
+	"fmt"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -413,6 +414,7 @@ func Test_ConcurrentClearAndSet(t *testing.T) {
 		var wg sync.WaitGroup
 
 		cache := New(Configure[string]())
+		wg.Add(1)
 		r := func() {
 			for !stop.Load() {
 				cache.Set("a", "a", time.Minute)
@@ -420,7 +422,7 @@ func Test_ConcurrentClearAndSet(t *testing.T) {
 			wg.Done()
 		}
 		go r()
-		wg.Add(1)
+
 		cache.Clear()
 		stop.Store(true)
 		wg.Wait()
@@ -432,20 +434,26 @@ func Test_ConcurrentClearAndSet(t *testing.T) {
 		// list is maintained by the background worker. This can create a period
 		// where the two are out of sync. Even SyncUpdate is helpless here, since
 		// it can only sync what's been written to the buffers.
-		for i := 0; i < 10; i++ {
+		assertEventually(t, func() bool {
 			expectedCount := 0
 			if cache.list.Head != nil {
 				expectedCount = 1
 			}
 			actualCount := cache.ItemCount()
-			if expectedCount == actualCount {
-				return
-			}
-			time.Sleep(time.Millisecond)
-		}
-		t.Errorf("cache list and lookup are not consistent")
-		t.FailNow()
+			return expectedCount == actualCount
+		}, 100, 50*time.Millisecond, fmt.Sprintf("cache list and lookup are not consistent in iteration %v", i))
 	}
+}
+
+func assertEventually(t *testing.T, assertion func() bool, maxRetry int, waitTime time.Duration, failmessage string) {
+	for i := 0; i < maxRetry; i++ {
+		if assertion() {
+			return
+		}
+		time.Sleep(waitTime)
+	}
+	// log and fail
+	t.Fatalf(failmessage)
 }
 
 func BenchmarkFrequentSets(b *testing.B) {
