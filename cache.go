@@ -126,8 +126,17 @@ func (c *Cache[T]) Setnx(key string, value T, duration time.Duration) {
 
 // Setnx2 set the value in the cache for the specified duration if not exists
 func (c *Cache[T]) Setnx2(key string, f func() T, duration time.Duration) *Item[T] {
-	item := c.bucket(key).setnx2(key, f, duration, false)
-	c.promotables <- item
+	item, existing := c.bucket(key).setnx2(key, f, duration, false)
+	// consistent with Get
+	if existing && !item.Expired() {
+		select {
+		case c.promotables <- item:
+		default:
+		}
+		// consistent with set
+	} else if !existing {
+		c.promotables <- item
+	}
 	return item
 }
 
