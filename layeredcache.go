@@ -10,7 +10,7 @@ import (
 type LayeredCache[T any] struct {
 	*Configuration[T]
 	control
-	list        *List[*Item[T]]
+	list        *List[T]
 	buckets     []*layeredBucket[T]
 	bucketMask  uint32
 	size        int64
@@ -33,7 +33,7 @@ type LayeredCache[T any] struct {
 // See ccache.Configure() for creating a configuration
 func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 	c := &LayeredCache[T]{
-		list:          NewList[*Item[T]](),
+		list:          NewList[T](),
 		Configuration: config,
 		control:       newControl(),
 		bucketMask:    uint32(config.buckets) - 1,
@@ -158,7 +158,7 @@ func (c *LayeredCache[T]) Fetch(primary, secondary string, duration time.Duratio
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *LayeredCache[T]) Delete(primary, secondary string) bool {
-	item := c.bucket(primary).delete(primary, secondary)
+	item := c.bucket(primary).remove(primary, secondary)
 	if item != nil {
 		c.deletables <- item
 		return true
@@ -262,7 +262,7 @@ func (c *LayeredCache[T]) worker() {
 						bucket.clear()
 					}
 					c.size = 0
-					c.list = NewList[*Item[T]]()
+					c.list = NewList[T]()
 				})
 				msg.done <- struct{}{}
 			case controlGetSize:
@@ -289,15 +289,14 @@ drain:
 }
 
 func (c *LayeredCache[T]) doDelete(item *Item[T]) {
-	if item.node == nil {
+	if item.prev == nil && item.next == nil {
 		item.promotions = -2
 	} else {
 		c.size -= item.size
 		if c.onDelete != nil {
 			c.onDelete(item)
 		}
-		c.list.Remove(item.node)
-		item.node = nil
+		c.list.Remove(item)
 		item.promotions = -2
 	}
 }
@@ -307,45 +306,45 @@ func (c *LayeredCache[T]) doPromote(item *Item[T]) bool {
 	if item.promotions == -2 {
 		return false
 	}
-	if item.node != nil { //not a new item
+
+	if item.next != nil || item.prev != nil { // not a new item
 		if item.shouldPromote(c.getsPerPromote) {
-			c.list.MoveToFront(item.node)
+			c.list.MoveToFront(item)
 			item.promotions = 0
 		}
 		return false
 	}
+
 	c.size += item.size
-	item.node = c.list.Insert(item)
+	c.list.Insert(item)
 	return true
 }
 
 func (c *LayeredCache[T]) gc() int {
-	node := c.list.Tail
 	dropped := 0
-	itemsToPrune := int64(c.itemsToPrune)
+	item := c.list.Tail
 
+	itemsToPrune := int64(c.itemsToPrune)
 	if min := c.size - c.maxSize; min > itemsToPrune {
 		itemsToPrune = min
 	}
 
 	for i := int64(0); i < itemsToPrune; i++ {
-		if node == nil {
+		if item == nil {
 			return dropped
 		}
-		prev := node.Prev
-		item := node.Value
+		prev := item.prev
 		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
-			c.bucket(item.group).delete(item.group, item.key)
+			c.bucket(item.group).remove(item.group, item.key)
 			c.size -= item.size
-			c.list.Remove(node)
+			c.list.Remove(item)
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
-			item.node = nil
-			item.promotions = -2
 			dropped += 1
+			item.promotions = -2
 		}
-		node = prev
+		item = prev
 	}
 	return dropped
 }

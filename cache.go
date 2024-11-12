@@ -10,7 +10,7 @@ import (
 type Cache[T any] struct {
 	*Configuration[T]
 	control
-	list        *List[*Item[T]]
+	list        *List[T]
 	size        int64
 	buckets     []*bucket[T]
 	bucketMask  uint32
@@ -22,7 +22,7 @@ type Cache[T any] struct {
 // See ccache.Configure() for creating a configuration
 func New[T any](config *Configuration[T]) *Cache[T] {
 	c := &Cache[T]{
-		list:          NewList[*Item[T]](),
+		list:          NewList[T](),
 		Configuration: config,
 		control:       newControl(),
 		bucketMask:    uint32(config.buckets) - 1,
@@ -184,7 +184,7 @@ func (c *Cache[T]) Fetch(key string, duration time.Duration, fetch func() (T, er
 
 // Remove the item from the cache, return true if the item was present, false otherwise.
 func (c *Cache[T]) Delete(key string) bool {
-	item := c.bucket(key).delete(key)
+	item := c.bucket(key).remove(key)
 	if item != nil {
 		c.deletables <- item
 		return true
@@ -269,7 +269,7 @@ func (c *Cache[T]) worker() {
 						bucket.clear()
 					}
 					c.size = 0
-					c.list = NewList[*Item[T]]()
+					c.list = NewList[T]()
 				})
 				msg.done <- struct{}{}
 			case controlGetSize:
@@ -327,15 +327,14 @@ doAllDeletes:
 }
 
 func (c *Cache[T]) doDelete(item *Item[T]) {
-	if item.node == nil {
+	if item.next == nil && item.prev == nil {
 		item.promotions = -2
 	} else {
 		c.size -= item.size
 		if c.onDelete != nil {
 			c.onDelete(item)
 		}
-		c.list.Remove(item.node)
-		item.node = nil
+		c.list.Remove(item)
 		item.promotions = -2
 	}
 }
@@ -345,22 +344,23 @@ func (c *Cache[T]) doPromote(item *Item[T]) bool {
 	if item.promotions == -2 {
 		return false
 	}
-	if item.node != nil { //not a new item
+
+	if item.next != nil || item.prev != nil { // not a new item
 		if item.shouldPromote(c.getsPerPromote) {
-			c.list.MoveToFront(item.node)
+			c.list.MoveToFront(item)
 			item.promotions = 0
 		}
 		return false
 	}
 
 	c.size += item.size
-	item.node = c.list.Insert(item)
+	c.list.Insert(item)
 	return true
 }
 
 func (c *Cache[T]) gc() int {
 	dropped := 0
-	node := c.list.Tail
+	item := c.list.Tail
 
 	itemsToPrune := int64(c.itemsToPrune)
 	if min := c.size - c.maxSize; min > itemsToPrune {
@@ -368,23 +368,21 @@ func (c *Cache[T]) gc() int {
 	}
 
 	for i := int64(0); i < itemsToPrune; i++ {
-		if node == nil {
+		if item == nil {
 			return dropped
 		}
-		prev := node.Prev
-		item := node.Value
+		prev := item.prev
 		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
-			c.bucket(item.key).delete(item.key)
+			c.bucket(item.key).remove(item.key)
 			c.size -= item.size
-			c.list.Remove(node)
+			c.list.Remove(item)
 			if c.onDelete != nil {
 				c.onDelete(item)
 			}
 			dropped += 1
-			item.node = nil
 			item.promotions = -2
 		}
-		node = prev
+		item = prev
 	}
 	return dropped
 }
