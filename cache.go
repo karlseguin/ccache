@@ -373,7 +373,7 @@ func (c *Cache[T]) gc() int {
 		}
 		prev := item.prev
 		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
-			c.bucket(item.key).remove(item.key)
+			c.bucket(item.key).delete(item.key)
 			c.size -= item.size
 			c.list.Remove(item)
 			if c.onDelete != nil {
