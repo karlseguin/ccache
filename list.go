@@ -29,8 +29,22 @@ func (l *List[T]) Remove(item *Item[T]) {
 }
 
 func (l *List[T]) MoveToFront(item *Item[T]) {
-	l.Remove(item)
-	l.Insert(item)
+	if item == l.Head {
+		return
+	}
+	next := item.next
+	prev := item.prev
+	if next == nil {
+		l.Tail = prev
+	} else {
+		next.prev = prev
+	}
+	prev.next = next
+
+	head := l.Head
+	l.Head = item
+	item.next = head
+	head.prev = item
 }
 
 func (l *List[T]) Insert(item *Item[T]) {
