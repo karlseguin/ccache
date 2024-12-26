@@ -13,12 +13,16 @@ import (
 
 func Test_LayedCache_GetsANonExistantValue(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	assert.Equal(t, cache.Get("spice", "flow"), nil)
 	assert.Equal(t, cache.ItemCount(), 0)
 }
 
 func Test_LayedCache_SetANewValue(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "a value", time.Minute)
 	assert.Equal(t, cache.Get("spice", "flow").Value(), "a value")
 	assert.Equal(t, cache.Get("spice", "stop"), nil)
@@ -27,6 +31,8 @@ func Test_LayedCache_SetANewValue(t *testing.T) {
 
 func Test_LayedCache_SetsMultipleValueWithinTheSameLayer(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -42,12 +48,16 @@ func Test_LayedCache_SetsMultipleValueWithinTheSameLayer(t *testing.T) {
 
 func Test_LayedCache_ReplaceDoesNothingIfKeyDoesNotExist(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	assert.Equal(t, cache.Replace("spice", "flow", "value-a"), false)
 	assert.Equal(t, cache.Get("spice", "flow"), nil)
 }
 
 func Test_LayedCache_ReplaceUpdatesTheValue(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	assert.Equal(t, cache.Replace("spice", "flow", "value-b"), true)
 	assert.Equal(t, cache.Get("spice", "flow").Value(), "value-b")
@@ -57,6 +67,8 @@ func Test_LayedCache_ReplaceUpdatesTheValue(t *testing.T) {
 
 func Test_LayedCache_DeletesAValue(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -70,6 +82,8 @@ func Test_LayedCache_DeletesAValue(t *testing.T) {
 
 func Test_LayedCache_DeletesAPrefix(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	assert.Equal(t, cache.ItemCount(), 0)
 
 	cache.Set("spice", "aaa", "1", time.Minute)
@@ -94,6 +108,8 @@ func Test_LayedCache_DeletesAPrefix(t *testing.T) {
 
 func Test_LayedCache_DeletesAFunc(t *testing.T) {
 	cache := newLayered[int]()
+	defer cache.Stop()
+
 	assert.Equal(t, cache.ItemCount(), 0)
 
 	cache.Set("spice", "a", 1, time.Minute)
@@ -129,6 +145,8 @@ func Test_LayedCache_OnDeleteCallbackCalled(t *testing.T) {
 	}
 
 	cache := Layered[string](Configure[string]().OnDelete(onDeleteFn))
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -147,6 +165,8 @@ func Test_LayedCache_OnDeleteCallbackCalled(t *testing.T) {
 
 func Test_LayedCache_DeletesALayer(t *testing.T) {
 	cache := newLayered[string]()
+	defer cache.Stop()
+
 	cache.Set("spice", "flow", "value-a", time.Minute)
 	cache.Set("spice", "must", "value-b", time.Minute)
 	cache.Set("leto", "sister", "ghanima", time.Minute)
@@ -158,9 +178,11 @@ func Test_LayedCache_DeletesALayer(t *testing.T) {
 }
 
 func Test_LayeredCache_GCsTheOldestItems(t *testing.T) {
-	cache := Layered(Configure[int]().ItemsToPrune(10))
+	cache := Layered(Configure[int]().MaxSize(100).PercentToPrune(10))
+	defer cache.Stop()
+
 	cache.Set("xx", "a", 23, time.Minute)
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 100; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
 	cache.Set("xx", "b", 9001, time.Minute)
@@ -169,14 +191,16 @@ func Test_LayeredCache_GCsTheOldestItems(t *testing.T) {
 	cache.GC()
 	assert.Equal(t, cache.Get("xx", "a"), nil)
 	assert.Equal(t, cache.Get("xx", "b").Value(), 9001)
-	assert.Equal(t, cache.Get("8", "a"), nil)
-	assert.Equal(t, cache.Get("9", "a").Value(), 9)
-	assert.Equal(t, cache.Get("10", "a").Value(), 10)
+	assert.Equal(t, cache.Get("9", "a"), nil)
+	assert.Equal(t, cache.Get("10", "a"), nil)
+	assert.Equal(t, cache.Get("11", "a").Value(), 11)
 }
 
 func Test_LayeredCache_PromotedItemsDontGetPruned(t *testing.T) {
-	cache := Layered(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
-	for i := 0; i < 500; i++ {
+	cache := Layered(Configure[int]().MaxSize(100).PercentToPrune(10).GetsPerPromote(1))
+	defer cache.Stop()
+
+	for i := 0; i < 100; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
 	cache.SyncUpdates()
@@ -189,8 +213,10 @@ func Test_LayeredCache_PromotedItemsDontGetPruned(t *testing.T) {
 }
 
 func Test_LayeredCache_GetWithoutPromoteDoesNotPromote(t *testing.T) {
-	cache := Layered(Configure[int]().ItemsToPrune(10).GetsPerPromote(1))
-	for i := 0; i < 500; i++ {
+	cache := Layered(Configure[int]().MaxSize(100).PercentToPrune(10).GetsPerPromote(1))
+	defer cache.Stop()
+
+	for i := 0; i < 100; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
 	cache.SyncUpdates()
@@ -203,18 +229,27 @@ func Test_LayeredCache_GetWithoutPromoteDoesNotPromote(t *testing.T) {
 }
 
 func Test_LayeredCache_TrackerDoesNotCleanupHeldInstance(t *testing.T) {
-	cache := Layered(Configure[int]().ItemsToPrune(10).Track())
+	cache := Layered(Configure[int]().MaxSize(10).PercentToPrune(10).Track())
+	defer cache.Stop()
+
 	item0 := cache.TrackingSet("0", "a", 0, time.Minute)
-	for i := 1; i < 11; i++ {
+	cache.Set("1", "a", 1, time.Minute)
+	item1 := cache.TrackingGet("1", "a")
+
+	for i := 2; i < 11; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
-	item1 := cache.TrackingGet("1", "a")
+
 	cache.SyncUpdates()
 	cache.GC()
 	assert.Equal(t, cache.Get("0", "a").Value(), 0)
 	assert.Equal(t, cache.Get("1", "a").Value(), 1)
 	item0.Release()
+
 	item1.Release()
+	for i := 1; i < 5; i++ {
+		cache.Set(strconv.Itoa(i+20), "a", i, time.Minute)
+	}
 	cache.GC()
 	assert.Equal(t, cache.Get("0", "a"), nil)
 	assert.Equal(t, cache.Get("1", "a"), nil)
@@ -227,7 +262,8 @@ func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
 			onDeleteFnCalled = true
 		}
 	}
-	cache := Layered(Configure[int]().MaxSize(5).ItemsToPrune(1).OnDelete(onDeleteFn))
+	cache := Layered(Configure[int]().MaxSize(5).PercentToPrune(1).OnDelete(onDeleteFn))
+	defer cache.Stop()
 
 	cache.Set("xx", "a", 23, time.Minute)
 	for i := 0; i < 7; i++ {
@@ -248,7 +284,9 @@ func Test_LayeredCache_RemovesOldestItemWhenFull(t *testing.T) {
 }
 
 func Test_LayeredCache_ResizeOnTheFly(t *testing.T) {
-	cache := Layered(Configure[int]().MaxSize(9).ItemsToPrune(1))
+	cache := Layered(Configure[int]().MaxSize(9).PercentToPrune(1))
+	defer cache.Stop()
+
 	for i := 0; i < 5; i++ {
 		cache.Set(strconv.Itoa(i), "a", i, time.Minute)
 	}
@@ -282,11 +320,14 @@ func Test_LayeredCache_ResizeOnTheFly(t *testing.T) {
 }
 
 func Test_LayeredCache_RemovesOldestItemWhenFullBySizer(t *testing.T) {
-	cache := Layered(Configure[*SizedItem]().MaxSize(9).ItemsToPrune(2))
-	for i := 0; i < 7; i++ {
+	cache := Layered(Configure[*SizedItem]().MaxSize(50).PercentToPrune(15))
+	defer cache.Stop()
+
+	for i := 0; i < 25; i++ {
 		cache.Set("pri", strconv.Itoa(i), &SizedItem{i, 2}, time.Minute)
 	}
 	cache.SyncUpdates()
+	cache.GC()
 	assert.Equal(t, cache.Get("pri", "0"), nil)
 	assert.Equal(t, cache.Get("pri", "1"), nil)
 	assert.Equal(t, cache.Get("pri", "2"), nil)
@@ -296,6 +337,8 @@ func Test_LayeredCache_RemovesOldestItemWhenFullBySizer(t *testing.T) {
 
 func Test_LayeredCache_SetUpdatesSizeOnDelta(t *testing.T) {
 	cache := Layered(Configure[*SizedItem]())
+	defer cache.Stop()
+
 	cache.Set("pri", "a", &SizedItem{0, 2}, time.Minute)
 	cache.Set("pri", "b", &SizedItem{0, 3}, time.Minute)
 	cache.SyncUpdates()
@@ -317,6 +360,8 @@ func Test_LayeredCache_SetUpdatesSizeOnDelta(t *testing.T) {
 
 func Test_LayeredCache_ReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
 	cache := Layered(Configure[*SizedItem]())
+	defer cache.Stop()
+
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "3", &SizedItem{1, 2}, time.Minute)
@@ -327,6 +372,8 @@ func Test_LayeredCache_ReplaceDoesNotchangeSizeIfNotSet(t *testing.T) {
 
 func Test_LayeredCache_ReplaceChangesSize(t *testing.T) {
 	cache := Layered(Configure[*SizedItem]())
+	defer cache.Stop()
+
 	cache.Set("pri", "1", &SizedItem{1, 2}, time.Minute)
 	cache.Set("pri", "2", &SizedItem{1, 2}, time.Minute)
 
@@ -344,7 +391,9 @@ func Test_LayeredCache_ReplaceChangesSize(t *testing.T) {
 }
 
 func Test_LayeredCache_EachFunc(t *testing.T) {
-	cache := Layered(Configure[int]().MaxSize(3).ItemsToPrune(1))
+	cache := Layered(Configure[int]().MaxSize(3).PercentToPrune(1))
+	defer cache.Stop()
+
 	assert.List(t, forEachKeysLayered[int](cache, "1"), []string{})
 
 	cache.Set("1", "a", 1, time.Minute)
@@ -374,7 +423,9 @@ func Test_LayeredCache_EachFunc(t *testing.T) {
 
 func Test_LayeredCachePrune(t *testing.T) {
 	maxSize := int64(500)
-	cache := Layered(Configure[string]().MaxSize(maxSize).ItemsToPrune(50))
+	cache := Layered(Configure[string]().MaxSize(maxSize).PercentToPrune(50))
+	defer cache.Stop()
+
 	epoch := 0
 	for i := 0; i < 10000; i++ {
 		epoch += 1

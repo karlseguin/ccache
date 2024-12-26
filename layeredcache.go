@@ -10,12 +10,13 @@ import (
 type LayeredCache[T any] struct {
 	*Configuration[T]
 	control
-	list        *List[T]
-	buckets     []*layeredBucket[T]
-	bucketMask  uint32
-	size        int64
-	deletables  chan *Item[T]
-	promotables chan *Item[T]
+	list            *List[T]
+	buckets         []*layeredBucket[T]
+	bucketMask      uint32
+	size            int64
+	pruneTargetSize int64
+	deletables      chan *Item[T]
+	promotables     chan *Item[T]
 }
 
 // Create a new layered cache with the specified configuration.
@@ -33,13 +34,14 @@ type LayeredCache[T any] struct {
 // See ccache.Configure() for creating a configuration
 func Layered[T any](config *Configuration[T]) *LayeredCache[T] {
 	c := &LayeredCache[T]{
-		list:          NewList[T](),
-		Configuration: config,
-		control:       newControl(),
-		bucketMask:    uint32(config.buckets) - 1,
-		buckets:       make([]*layeredBucket[T], config.buckets),
-		deletables:    make(chan *Item[T], config.deleteBuffer),
-		promotables:   make(chan *Item[T], config.promoteBuffer),
+		list:            NewList[T](),
+		Configuration:   config,
+		control:         newControl(),
+		bucketMask:      uint32(config.buckets) - 1,
+		buckets:         make([]*layeredBucket[T], config.buckets),
+		deletables:      make(chan *Item[T], config.deleteBuffer),
+		promotables:     make(chan *Item[T], config.promoteBuffer),
+		pruneTargetSize: config.maxSize - config.maxSize*int64(config.percentToPrune)/100,
 	}
 	for i := 0; i < config.buckets; i++ {
 		c.buckets[i] = &layeredBucket[T]{
@@ -242,7 +244,9 @@ func (c *LayeredCache[T]) worker() {
 				msg.res <- dropped
 				dropped = 0
 			case controlSetMaxSize:
-				c.maxSize = msg.size
+				newMaxSize := msg.size
+				c.maxSize = newMaxSize
+				c.pruneTargetSize = newMaxSize - newMaxSize*int64(c.percentToPrune)/100
 				if c.size > c.maxSize {
 					dropped += c.gc()
 				}
@@ -324,19 +328,21 @@ func (c *LayeredCache[T]) gc() int {
 	dropped := 0
 	item := c.list.Tail
 
-	itemsToPrune := int64(c.itemsToPrune)
-	if min := c.size - c.maxSize; min > itemsToPrune {
-		itemsToPrune = min
-	}
+	prunedSize := int64(0)
+	sizeToPrune := c.size - c.pruneTargetSize
 
-	for i := int64(0); i < itemsToPrune; i++ {
+	for prunedSize < sizeToPrune {
 		if item == nil {
 			return dropped
 		}
 		prev := item.prev
 		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
+
 			c.bucket(item.group).delete(item.group, item.key)
-			c.size -= item.size
+			itemSize := item.size
+			c.size -= itemSize
+			prunedSize += itemSize
+
 			c.list.Remove(item)
 			if c.onDelete != nil {
 				c.onDelete(item)
