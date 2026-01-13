@@ -3,7 +3,6 @@ package ccache
 type Configuration[T any] struct {
 	maxSize        int64
 	buckets        int
-	itemsToPrune   int
 	percentToPrune int
 	deleteBuffer   int
 	promoteBuffer  int
@@ -18,7 +17,6 @@ type Configuration[T any] struct {
 func Configure[T any]() *Configuration[T] {
 	return &Configuration[T]{
 		buckets:        16,
-		itemsToPrune:   0,
 		percentToPrune: 10,
 		deleteBuffer:   1024,
 		getsPerPromote: 3,
@@ -99,7 +97,7 @@ func (c *Configuration[T]) Track() *Configuration[T] {
 	return c
 }
 
-// OnDelete allows setting a callback function to react to ideam deletion.
+// OnDelete allows setting a callback function to react to item deletion.
 // This typically allows to do a cleanup of resources, such as calling a Close() on
 // cached object that require some kind of tear-down.
 func (c *Configuration[T]) OnDelete(callback func(item *Item[T])) *Configuration[T] {

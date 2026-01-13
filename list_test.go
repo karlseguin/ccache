@@ -56,6 +56,34 @@ func Test_List_Remove(t *testing.T) {
 	assertList(t, l)
 }
 
+func Test_List_MoveToFront(t *testing.T) {
+	l := NewList[int]()
+
+	// Single item - already at front
+	n1 := newItem("a", 1, 0, false)
+	l.Insert(n1)
+	l.MoveToFront(n1)
+	assertList(t, l, 1)
+
+	// Head item - already at front
+	n2 := newItem("b", 2, 0, false)
+	l.Insert(n2)
+	assertList(t, l, 2, 1)
+	l.MoveToFront(n2)
+	assertList(t, l, 2, 1)
+
+	// Tail item
+	l.MoveToFront(n1)
+	assertList(t, l, 1, 2)
+
+	// Middle item
+	n3 := newItem("c", 3, 0, false)
+	l.Insert(n3)
+	assertList(t, l, 3, 1, 2)
+	l.MoveToFront(n1)
+	assertList(t, l, 1, 3, 2)
+}
+
 func assertList(t *testing.T, list *List[int], expected ...int) {
 	t.Helper()
 

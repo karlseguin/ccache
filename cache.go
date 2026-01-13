@@ -373,7 +373,6 @@ func (c *Cache[T]) gc() int {
 		if item == nil {
 			return dropped
 		}
-		// fmt.Println(item.key)
 		prev := item.prev
 		if !c.tracking || atomic.LoadInt32(&item.refCount) == 0 {
 			c.bucket(item.key).delete(item.key)
